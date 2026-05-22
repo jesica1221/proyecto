@@ -1,3 +1,4 @@
+import Config from '@/constants/config';
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -61,7 +62,7 @@ export default function Registro() {
       };
 
       const response = await fetch(
-        "http://192.168.1.40/eficient-parking-lot/registro.php",
+        `${Config.API_BASE_URL}/registro.php`,
         {
           method: "POST",
           headers: {
