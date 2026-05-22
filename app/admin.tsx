@@ -1,10 +1,11 @@
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { useAuth } from '@/context/AuthContext';
+import Config from '@/constants/config';
+import AuthService from '@/services/auth';
+import useAuthStore from '@/store/useAuthStore';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-  Alert,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
@@ -14,7 +15,7 @@ import {
 export default function AdminScreen() {
 
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, logout, token, getAuthHeaders, hasRole } = useAuthStore();
 
   const [zonas, setZonas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,7 +79,14 @@ export default function AdminScreen() {
     try {
 
       const response = await fetch(
-        "http://192.168.1.40/eficient-parking-lot/admin_espacios.php"
+        `${Config.API_BASE_URL}/admin_espacios.php`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders(),
+          },
+        }
       );
 
       const data = await response.json();
@@ -146,21 +154,10 @@ export default function AdminScreen() {
   ========================= */
   useEffect(() => {
 
-    if (!user) {
-
+    if (!user || !token || !AuthService.validateToken(token) || !hasRole('admin')) {
+      logout();
       router.replace('/login');
       return;
-
-    }
-
-    const rol = user?.rol?.toLowerCase().trim();
-
-    if (rol !== 'admin') {
-
-      Alert.alert('Error', 'No autorizado');
-      router.replace('/login');
-      return;
-
     }
 
     cargarAdmin();
