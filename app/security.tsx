@@ -1,6 +1,8 @@
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { useAuth } from '@/context/AuthContext';
+import Config from '@/constants/config';
+import AuthService from '@/services/auth';
+import useAuthStore from '@/store/useAuthStore';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -20,7 +22,7 @@ export default function SecurityScreen() {
 
   const router = useRouter();
 
-  const { user, logout } = useAuth();
+  const { user, logout, token, getAuthHeaders, hasRole } = useAuthStore();
 
   const [usuarioEncontrado, setUsuarioEncontrado] = useState<any>(null);
 
@@ -49,36 +51,15 @@ export default function SecurityScreen() {
   const [selectedEspacio, setSelectedEspacio] = useState<any>(null);
 
   useEffect(() => {
-
-    if (!user) {
-
+    if (!user || !token || !AuthService.validateToken(token) || !hasRole('security')) {
+      logout();
       router.replace('/login');
-
       return;
-
-    }
-
-    if (
-      user.rol !== 'security' &&
-      user.rol !== 'seguridad'
-    ) {
-
-      Alert.alert(
-        'Error',
-        'No autorizado'
-      );
-
-      router.replace('/login');
-
-      return;
-
     }
 
     cargarTodo();
-
     setLoading(false);
-
-  }, [user]);
+  }, [user, token, logout, router, hasRole]);
 
   /* ========================================
       ESCANEAR QR / PLACA
@@ -121,17 +102,16 @@ export default function SecurityScreen() {
       // ¿YA TIENE PARQUEADERO?
 
       const responseActiva = await fetch(
-        "http://192.168.1.40/eficient-parking-lot/buscar_placa_activa.php",
+        `${Config.API_BASE_URL}/buscar_placa_activa.php`,
         {
           method: "POST",
-
           headers: {
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            ...getAuthHeaders(),
           },
-
           body: JSON.stringify({
-            placa: placaLimpia
-          })
+            placa: placaLimpia,
+          }),
         }
       );
 
@@ -156,17 +136,16 @@ Espacio: ${usuario.numero}`
       // BUSCAR USUARIO
 
       const responseUsuario = await fetch(
-        "http://192.168.1.40/eficient-parking-lot/buscar_usuario_placa.php",
+        `${Config.API_BASE_URL}/buscar_usuario_placa.php`,
         {
           method: "POST",
-
           headers: {
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            ...getAuthHeaders(),
           },
-
           body: JSON.stringify({
-            placa: placaLimpia
-          })
+            placa: placaLimpia,
+          }),
         }
       );
 
@@ -192,17 +171,16 @@ Seleccione un espacio`
       // CREAR VISITANTE
 
       const responseVisitante = await fetch(
-        "http://192.168.1.40/eficient-parking-lot/crear_visitante.php",
+        `${Config.API_BASE_URL}/crear_visitante.php`,
         {
           method: "POST",
-
           headers: {
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            ...getAuthHeaders(),
           },
-
           body: JSON.stringify({
-            placa: placaLimpia
-          })
+            placa: placaLimpia,
+          }),
         }
       );
 
@@ -277,7 +255,14 @@ Seleccione un espacio`
     try {
 
       const res = await fetch(
-        "http://192.168.1.40/eficient-parking-lot/admin_espacios.php"
+        `${Config.API_BASE_URL}/admin_espacios.php`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders(),
+          },
+        }
       );
 
       const data = await res.json();
@@ -385,14 +370,13 @@ Seleccione un espacio`
     try {
 
       const response = await fetch(
-        "http://192.168.1.40/eficient-parking-lot/asignar_usuario.php",
+        `${Config.API_BASE_URL}/asignar_usuario.php`,
         {
           method: "POST",
-
           headers: {
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            ...getAuthHeaders(),
           },
-
           body: JSON.stringify({
 
             usuarioId: usuarioEncontrado.id,
@@ -442,6 +426,35 @@ Seleccione un espacio`
       CLICK ESPACIO
   ======================================== */
 
+  const liberarEspacio = async (espacio: any) => {
+    try {
+      const response = await fetch(
+        `${Config.API_BASE_URL}/liberar.php`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...getAuthHeaders(),
+          },
+          body: JSON.stringify({
+            espacioId: espacio.id,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (data.success) {
+        Alert.alert("✅ Espacio liberado");
+        cargarTodo();
+      } else {
+        Alert.alert("Error", data.message || "No se pudo liberar");
+      }
+    } catch (error) {
+      Alert.alert("Error servidor");
+    }
+  };
+
   const handleEspacioClick = (
     espacio: any
   ) => {
@@ -467,10 +480,18 @@ Seleccione un espacio`
     }
 
     Alert.alert(
-      "Ocupado",
+      espacio.estado === "ocupado" ? "Ocupado" : "Por vencer",
 
       `Usuario: ${espacio.nombre}
-Cédula: ${espacio.cedula}`
+Cédula: ${espacio.cedula}`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Liberar espacio",
+          style: "destructive",
+          onPress: () => liberarEspacio(espacio),
+        },
+      ]
     );
 
   };
@@ -498,14 +519,13 @@ Cédula: ${espacio.cedula}`
     try {
 
       const response = await fetch(
-        "http://192.168.1.40/eficient-parking-lot/asignar_visitante.php",
+        `${Config.API_BASE_URL}/asignar_visitante.php`,
         {
           method: "POST",
-
           headers: {
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            ...getAuthHeaders(),
           },
-
           body: JSON.stringify({
 
             nombre: visitanteNombre,
