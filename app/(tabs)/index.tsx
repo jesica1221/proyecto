@@ -1,16 +1,16 @@
-import { ScrollView, StyleSheet, TouchableOpacity, Alert, Modal, View } from 'react-native';
-import React, { useEffect, useState } from 'react';
-import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
-import { useAuth } from '@/context/AuthContext';
+import { ThemedView } from '@/components/themed-view';
 import { useParking } from '@/context/ParkingContext';
 import DBService from '@/services/database';
 import QRService from '@/services/qrService';
-import { Reservation, ParkingZone, ParkingSpace } from '@/types/parking';
+import useAuthStore from '@/store/useAuthStore';
+import { ParkingSpace, ParkingZone, Reservation } from '@/types/parking';
+import React, { useEffect, useState } from 'react';
+import { Alert, Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
 export default function HomeScreen() {
-  const { user, logout } = useAuth();
+  const { user, logout } = useAuthStore();
   const { zonas, cargarZonas, zonaActual, seleccionarZona } = useParking();
   const [reservacion, setReservacion] = useState<Reservation | null>(null);
   const [mostrarQR, setMostrarQR] = useState(false);
