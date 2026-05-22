@@ -1,4 +1,5 @@
 import { ThemedText } from '@/components/themed-text';
+import Config from '@/constants/config';
 import { useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
@@ -22,7 +23,7 @@ export default function ZonaAdminScreen() {
         try {
 
             const response = await fetch(
-                "http://192.168.1.40/eficient-parking-lot/admin_espacios.php"
+                `${Config.API_BASE_URL}/admin_espacios.php`
             );
 
             const data = await response.json();
