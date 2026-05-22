@@ -1,13 +1,13 @@
-﻿import { ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
-import React from 'react';
-import { useRouter } from 'expo-router';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { useAuth } from '@/context/AuthContext';
+import useAuthStore from '@/store/useAuthStore';
+import { useRouter } from 'expo-router';
+import React from 'react';
+import { ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, logout } = useAuthStore();
 
   const handleLogout = () => {
     logout();
@@ -32,7 +32,7 @@ export default function ProfileScreen() {
             </ThemedText>
           </ThemedView>
 
-          <ThemedView>
+          <ThemedView style={styles.headerContent}>
             <ThemedText type="title">{user.nombre}</ThemedText>
             <ThemedText style={styles.roleLabel}>
               {user.rol === 'student'
@@ -42,6 +42,13 @@ export default function ProfileScreen() {
                   : 'Seguridad'}
             </ThemedText>
           </ThemedView>
+
+          <TouchableOpacity
+            style={styles.editButton}
+            onPress={() => router.push('/editar-perfil')}
+          >
+            <ThemedText style={styles.editButtonText}>✏️</ThemedText>
+          </TouchableOpacity>
         </ThemedView>
 
         <ThemedView style={styles.card}>
@@ -115,6 +122,17 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#ddd',
+  },
+  headerContent: {
+    flex: 1,
+  },
+  editButton: {
+    backgroundColor: '#334155',
+    padding: 10,
+    borderRadius: 8,
+  },
+  editButtonText: {
+    fontSize: 18,
   },
   avatarContainer: {
     width: 80,
