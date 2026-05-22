@@ -1,28 +1,22 @@
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useAuth } from '@/context/AuthContext';
-import { DBService } from '@/services/database';
-import { ParkingZone } from '@/types/parking';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   Alert,
-  FlatList,
-  Modal,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
   View
 } from 'react-native';
 
-import { CameraView, useCameraPermissions } from 'expo-camera';
-
 export default function AdminScreen() {
 
   const router = useRouter();
   const { user, logout } = useAuth();
 
-  const [zones, setZones] = useState<ParkingZone[]>([]);
+  const [zonas, setZonas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [adminData, setAdminData] = useState<any>({
@@ -31,108 +25,151 @@ export default function AdminScreen() {
     porVencer: []
   });
 
-  const [selectedEspacio, setSelectedEspacio] = useState<any>(null);
-  const [modalVisible, setModalVisible] = useState(false);
+  /* =========================
+     ZONAS
+  ========================= */
+  const getZonaInfo = (id: number | string) => {
 
-  // 🔥 QR STATES
-  const [verifications, setVerifications] = useState<any[]>([]);
-  const [permission, requestPermission] = useCameraPermissions();
-  const [scanned, setScanned] = useState(false);
+    switch (Number(id)) {
 
-  // 🔥 TRAER DATOS BACKEND
+      case 1:
+        return {
+          nombre: "🏢 Administrativa",
+          color: "#1D4ED8"
+        };
+
+      case 2:
+        return {
+          nombre: "📚 Biblioteca",
+          color: "#2563EB"
+        };
+
+      case 3:
+        return {
+          nombre: "🎭 Auditorio",
+          color: "#3B82F6"
+        };
+
+      case 4:
+        return {
+          nombre: "🍔 Cafetería",
+          color: "#60A5FA"
+        };
+
+      case 5:
+        return {
+          nombre: "🧪 Laboratorios",
+          color: "#93C5FD"
+        };
+
+      default:
+        return {
+          nombre: `Zona ${id}`,
+          color: "#64748B"
+        };
+    }
+  };
+
+  /* =========================
+     CARGAR DATA
+  ========================= */
   const cargarAdmin = async () => {
+
     try {
+
       const response = await fetch(
-        "http://192.168.26.9/eficient-parking-lot/admin_espacios.php"
+        "http://192.168.1.40/eficient-parking-lot/admin_espacios.php"
       );
 
       const data = await response.json();
 
       if (data?.success) {
+
         setAdminData({
           libres: data.libres || [],
           ocupados: data.ocupados || [],
           porVencer: data.porVencer || [],
         });
+
+        const todos = [
+          ...(data.libres || []),
+          ...(data.ocupados || []),
+          ...(data.porVencer || []),
+        ];
+
+        const zonasMap: any = {};
+
+        todos.forEach((e: any) => {
+
+          if (!zonasMap[e.zonaId]) {
+
+            zonasMap[e.zonaId] = {
+              id: e.zonaId,
+              tipo: e.tipoVehiculo || "carro",
+            };
+
+          }
+
+        });
+
+        setZonas(Object.values(zonasMap));
+
       }
 
     } catch (error) {
+
       console.log("ERROR ADMIN:", error);
+
     }
   };
 
-  // 🔥 ESCANEO QR
-  const handleBarCodeScanned = ({ data }: any) => {
-    setScanned(true);
-    handleVerifyQRWithData(data);
+  /* =========================
+     ABRIR ZONA
+  ========================= */
+  const abrirZona = (zona: any) => {
+
+    const zonaInfo = getZonaInfo(zona.id);
+
+    router.push({
+      pathname: "/zona-admin" as any,
+      params: {
+        zonaId: zona.id,
+        zonaNombre: zonaInfo.nombre,
+        zonaColor: zonaInfo.color,
+      },
+    });
+
   };
 
-  // 🔥 VALIDACIÓN CONTRA BACKEND (NUEVO)
-  const handleVerifyQRWithData = async (dataQR: string) => {
-    try {
-      const response = await fetch(
-        "http://192.168.26.9/eficient-parking-lot/verificar_qr.php",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            qr: dataQR,
-          }),
-        }
-      );
-
-      const result = await response.json();
-
-      if (!result.success) {
-        Alert.alert("❌ Acceso denegado", result.message);
-        return;
-      }
-
-      const newVerification = {
-        id: `verify-${Date.now()}`,
-        nombre: result.usuario,
-        espacio: result.espacio,
-        timestamp: new Date().toLocaleTimeString(),
-      };
-
-      setVerifications((prev) => [newVerification, ...prev]);
-
-      Alert.alert(
-        "✅ Acceso permitido",
-        `Usuario: ${result.usuario}\nEspacio: ${result.espacio}`
-      );
-
-    } catch (error) {
-      Alert.alert("Error", "No se pudo validar QR");
-    }
-  };
-
+  /* =========================
+     EFFECT
+  ========================= */
   useEffect(() => {
 
     if (!user) {
+
       router.replace('/login');
       return;
+
     }
 
     const rol = user?.rol?.toLowerCase().trim();
 
     if (rol !== 'admin') {
+
       Alert.alert('Error', 'No autorizado');
       router.replace('/login');
       return;
+
     }
 
-    const adminZones = DBService.getZonasPorTipo(
-      user.tipoVehiculo,
-      user.rol
-    );
-
-    setZones(adminZones);
-
     cargarAdmin();
-    const interval = setInterval(cargarAdmin, 5000);
+
+    const interval = setInterval(() => {
+
+      cargarAdmin();
+
+    }, 5000);
 
     setLoading(false);
 
@@ -140,259 +177,193 @@ export default function AdminScreen() {
 
   }, [user]);
 
+  /* =========================
+     LOGOUT
+  ========================= */
   const handleLogout = () => {
+
     logout();
     router.replace('/login');
+
   };
 
+  /* =========================
+     LOADING
+  ========================= */
   if (loading) {
+
     return (
       <ThemedView style={styles.container}>
         <ThemedText>Cargando...</ThemedText>
       </ThemedView>
     );
+
   }
 
   return (
+
     <ScrollView style={styles.container}>
 
       {/* HEADER */}
       <ThemedView style={styles.header}>
-        <ThemedView style={styles.headerTop}>
 
-          <ThemedView>
-            <ThemedText type="title">🏫 Administrador</ThemedText>
+        <View style={styles.headerTop}>
+
+          <View>
+
+            <ThemedText type="title">
+              🏫 Administrador
+            </ThemedText>
+
             <ThemedText style={styles.userInfo}>
               {user?.nombre}
             </ThemedText>
-          </ThemedView>
+
+          </View>
 
           <TouchableOpacity
             style={styles.logoutButton}
             onPress={handleLogout}
           >
+
             <ThemedText style={styles.logoutButtonText}>
               Salir
             </ThemedText>
+
           </TouchableOpacity>
 
-        </ThemedView>
+        </View>
+
       </ThemedView>
 
       {/* CONTENIDO */}
       <ThemedView style={styles.content}>
 
-        {/* ESTADO GENERAL */}
-        <ThemedText type="subtitle" style={styles.sectionTitle}>
+        {/* ESTADÍSTICAS */}
+        <ThemedText style={styles.sectionTitle}>
           📊 Estado General
         </ThemedText>
 
-        <ThemedView style={styles.statsBox}>
-          <ThemedText>🟢 Libres: {adminData.libres.length}</ThemedText>
-          <ThemedText>🔴 Ocupados: {adminData.ocupados.length}</ThemedText>
-          <ThemedText>⏳ Por vencer: {adminData.porVencer.length}</ThemedText>
-        </ThemedView>
+        <View style={styles.statsContainer}>
+
+          <View
+            style={[
+              styles.statCard,
+              { backgroundColor: '#22C55E' }
+            ]}
+          >
+
+            <ThemedText style={styles.statNumber}>
+              {adminData.libres.length}
+            </ThemedText>
+
+            <ThemedText style={styles.statLabel}>
+              Libres
+            </ThemedText>
+
+          </View>
+
+          <View
+            style={[
+              styles.statCard,
+              { backgroundColor: '#EF4444' }
+            ]}
+          >
+
+            <ThemedText style={styles.statNumber}>
+              {adminData.ocupados.length}
+            </ThemedText>
+
+            <ThemedText style={styles.statLabel}>
+              Ocupados
+            </ThemedText>
+
+          </View>
+
+          <View
+            style={[
+              styles.statCard,
+              { backgroundColor: '#F59E0B' }
+            ]}
+          >
+
+            <ThemedText style={styles.statNumber}>
+              {adminData.porVencer.length}
+            </ThemedText>
+
+            <ThemedText style={styles.statLabel}>
+              Por vencer
+            </ThemedText>
+
+          </View>
+
+        </View>
 
         {/* ZONAS */}
-        <ThemedText type="subtitle" style={styles.sectionTitle}>
-          📊 Parqueaderos
-        </ThemedText>
-
-        {zones.length === 0 ? (
-          <ThemedView style={styles.emptyState}>
-            <ThemedText>No hay parqueaderos asignados</ThemedText>
-          </ThemedView>
-        ) : (
-          <FlatList
-            data={zones}
-            keyExtractor={(item) => item.id.toString()}
-            scrollEnabled={false}
-            renderItem={({ item: zone }) => {
-
-              const disponibles = zone.espacios.filter(e => e.disponible).length;
-              const ocupados = zone.capacidad - disponibles;
-
-              const porcentaje = zone.capacidad > 0
-                ? Math.round((ocupados / zone.capacidad) * 100)
-                : 0;
-
-              return (
-                <ThemedView style={styles.zoneCard}>
-
-                  <ThemedView style={styles.zoneHeader}>
-                    <ThemedText type="subtitle">
-                      {zone.nombre}
-                    </ThemedText>
-
-                    <ThemedText style={[
-                      styles.occupancyBadge,
-                      porcentaje > 80 && styles.occupancyBadgeRed,
-                    ]}>
-                      {porcentaje}% OCUPADO
-                    </ThemedText>
-                  </ThemedView>
-
-                  <ThemedView style={styles.stats}>
-                    <View style={styles.statItem}>
-                      <ThemedText style={styles.statLabel}>Disponibles</ThemedText>
-                      <ThemedText style={styles.statValue}>{disponibles}</ThemedText>
-                    </View>
-
-                    <View style={styles.statItem}>
-                      <ThemedText style={styles.statLabel}>Ocupados</ThemedText>
-                      <ThemedText style={[styles.statValue, { color: '#E74C3C' }]}>
-                        {ocupados}
-                      </ThemedText>
-                    </View>
-
-                    <View style={styles.statItem}>
-                      <ThemedText style={styles.statLabel}>Total</ThemedText>
-                      <ThemedText style={styles.statValue}>{zone.capacidad}</ThemedText>
-                    </View>
-                  </ThemedView>
-
-                  <View style={styles.progressBar}>
-                    <View style={[
-                      styles.progressFill,
-                      { width: `${porcentaje}%` },
-                    ]} />
-                  </View>
-
-                </ThemedView>
-              );
-            }}
-          />
-        )}
-
-        {/* OCUPADOS */}
         <ThemedText style={styles.sectionTitle}>
-          🚗 Espacios Ocupados
+          🗺️ Zonas
         </ThemedText>
 
-        {adminData.ocupados.length === 0 ? (
-          <ThemedText>No hay ocupados</ThemedText>
-        ) : (
-          adminData.ocupados.map((item: any) => (
-            <TouchableOpacity
-              key={item.id}
-              onPress={() => {
-                setSelectedEspacio(item);
-                setModalVisible(true);
-              }}
-            >
-              <ThemedView style={styles.card}>
-                <ThemedText>🚗 Espacio #{item.numero}</ThemedText>
-                <ThemedText>Zona: {item.zonaId}</ThemedText>
-                <ThemedText>Vehículo: {item.tipoVehiculo}</ThemedText>
-                <ThemedText>Usuario: {item.nombre}</ThemedText>
+        <View style={styles.zonasContainer}>
 
-                <ThemedText style={{ fontWeight: 'bold', marginTop: 4 }}>
-                  ⏱ {item.tiempoRestanteMin || 0} min
+          {zonas.map((zona: any) => {
+
+            const zonaInfo = getZonaInfo(zona.id);
+
+            return (
+
+              <TouchableOpacity
+                key={zona.id}
+                style={[
+                  styles.zonaCard,
+                  {
+                    backgroundColor: zonaInfo.color
+                  }
+                ]}
+                onPress={() => abrirZona(zona)}
+              >
+
+                <ThemedText style={styles.zonaTitle}>
+                  {zonaInfo.nombre}
                 </ThemedText>
-              </ThemedView>
-            </TouchableOpacity>
-          ))
-        )}
 
-        {/* 🔐 ESCÁNER QR */}
-        <ThemedText style={styles.sectionTitle}>
-          🔐 Escanear Código QR
-        </ThemedText>
+                <ThemedText style={styles.zonaSubtitle}>
+                  {zona.tipo.toUpperCase()}
+                </ThemedText>
 
-        {!permission ? (
-          <ThemedText>Solicitando permiso...</ThemedText>
-        ) : !permission.granted ? (
-          <TouchableOpacity onPress={requestPermission}>
-            <ThemedText>Dar permiso a la cámara</ThemedText>
-          </TouchableOpacity>
-        ) : (
-          <View style={{ height: 300, overflow: 'hidden', borderRadius: 10 }}>
-            <CameraView
-              onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
-              style={{ flex: 1 }}
-              barcodeScannerSettings={{
-                barcodeTypes: ["qr"],
-              }}
-            />
-          </View>
-        )}
+                <ThemedText style={styles.verMas}>
+                  Ver espacios →
+                </ThemedText>
 
-        <TouchableOpacity
-          style={[styles.logoutButton, { marginTop: 10 }]}
-          onPress={() => setScanned(false)}
-        >
-          <ThemedText style={styles.logoutButtonText}>
-            🔄 Escanear de nuevo
-          </ThemedText>
-        </TouchableOpacity>
+              </TouchableOpacity>
 
-        {/* HISTORIAL */}
-        <ThemedText style={styles.sectionTitle}>
-          📋 Últimas Verificaciones
-        </ThemedText>
+            );
 
-        {verifications.length === 0 ? (
-          <ThemedText>Sin registros</ThemedText>
-        ) : (
-          verifications.map((item) => (
-            <ThemedView key={item.id} style={styles.card}>
-              <ThemedText>{item.nombre}</ThemedText>
-              <ThemedText>Espacio: #{item.espacio}</ThemedText>
-              <ThemedText>{item.timestamp}</ThemedText>
-            </ThemedView>
-          ))
-        )}
+          })}
+
+        </View>
 
       </ThemedView>
 
-      {/* MODAL */}
-      <Modal visible={modalVisible} transparent animationType="slide">
-        <View style={{
-          flex: 1,
-          backgroundColor: 'rgba(0,0,0,0.5)',
-          justifyContent: 'center',
-          padding: 20
-        }}>
-          <View style={{
-            backgroundColor: '#fff',
-            padding: 20,
-            borderRadius: 10
-          }}>
-            <ThemedText type="subtitle">👤 Usuario</ThemedText>
-
-            <ThemedText>Nombre: {selectedEspacio?.nombre}</ThemedText>
-            <ThemedText>Cédula: {selectedEspacio?.cedula}</ThemedText>
-            <ThemedText>Espacio: #{selectedEspacio?.numero}</ThemedText>
-
-            <TouchableOpacity
-              onPress={() => setModalVisible(false)}
-              style={{
-                marginTop: 15,
-                backgroundColor: '#007AFF',
-                padding: 10,
-                borderRadius: 6
-              }}
-            >
-              <ThemedText style={{ color: '#fff', textAlign: 'center' }}>
-                Cerrar
-              </ThemedText>
-            </TouchableOpacity>
-
-          </View>
-        </View>
-      </Modal>
-
     </ScrollView>
+
   );
 }
 
+/* =========================
+   ESTILOS
+========================= */
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+
+  container: {
+    flex: 1,
+    backgroundColor: '#0F172A',
+  },
 
   header: {
-    paddingHorizontal: 16,
-    paddingVertical: 20,
-    backgroundColor: '#8B5CF6',
+    padding: 20,
+    paddingTop: 45,
+    backgroundColor: '#1E293B',
   },
 
   headerTop: {
@@ -402,101 +373,83 @@ const styles = StyleSheet.create({
   },
 
   userInfo: {
-    fontSize: 12,
-    opacity: 0.8,
+    color: '#94A3B8',
     marginTop: 4,
-    color: '#fff',
   },
 
   logoutButton: {
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 4,
+    backgroundColor: '#334155',
+    padding: 10,
+    borderRadius: 10,
   },
 
   logoutButtonText: {
     color: '#fff',
-    fontSize: 12,
     fontWeight: 'bold',
   },
 
-  content: { padding: 16 },
+  content: {
+    padding: 16,
+  },
 
   sectionTitle: {
-    marginBottom: 16,
-    marginTop: 8,
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    marginTop: 10,
   },
 
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-
-  zoneCard: {
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-    padding: 14,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-
-  zoneHeader: {
+  statsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 25,
   },
 
-  occupancyBadge: {
-    fontSize: 11,
+  statCard: {
+    width: '31%',
+    padding: 15,
+    borderRadius: 15,
+    alignItems: 'center',
+  },
+
+  statNumber: {
+    color: '#fff',
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#27AE60',
   },
-
-  occupancyBadgeRed: {
-    color: '#E74C3C',
-  },
-
-  stats: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 12,
-  },
-
-  statItem: { alignItems: 'center' },
 
   statLabel: {
-    fontSize: 11,
-    opacity: 0.7,
+    color: '#fff',
+    marginTop: 5,
+    fontSize: 13,
   },
 
-  statValue: {
+  zonasContainer: {
+    marginBottom: 30,
+  },
+
+  zonaCard: {
+    padding: 20,
+    borderRadius: 18,
+    marginBottom: 15,
+  },
+
+  zonaTitle: {
+    color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
   },
 
-  progressBar: {
-    height: 6,
-    backgroundColor: '#e0e0e0',
-    borderRadius: 3,
+  zonaSubtitle: {
+    color: '#E2E8F0',
+    marginTop: 5,
   },
 
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#E74C3C',
+  verMas: {
+    color: '#fff',
+    marginTop: 12,
+    fontWeight: 'bold',
   },
 
-  statsBox: {
-    backgroundColor: '#fff',
-    padding: 12,
-    borderRadius: 8,
-  },
-
-  card: {
-    backgroundColor: '#f5f5f5',
-    padding: 10,
-    borderRadius: 6,
-    marginBottom: 8,
-  },
 });

@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import {
   Alert,
   Image,
+  Linking,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,7 +15,6 @@ import {
 export default function Registro() {
   const router = useRouter();
 
-  const [claveAdmin, setClaveAdmin] = useState("");
   const [nombre, setNombre] = useState("");
   const [cedula, setCedula] = useState("");
   const [password, setPassword] = useState("");
@@ -22,46 +22,46 @@ export default function Registro() {
   const [placa, setPlaca] = useState("");
   const [tipoVehiculo, setTipoVehiculo] = useState("carro");
   const [aceptaTerminos, setAceptaTerminos] = useState(false);
+  const [claveAdmin, setClaveAdmin] = useState("");
 
   const registrar = async () => {
-
     if (!nombre || !cedula || !password) {
       Alert.alert("Error", "Debes completar los datos");
       return;
     }
 
-    if (rol === "admin") {
+    // VALIDAR SEGÚN ROL
+    if (rol === "estudiante" && !placa) {
+      Alert.alert("Error", "Debes ingresar la placa");
+      return;
+    }
 
-      if (!claveAdmin) {
-        Alert.alert("Error", "Ingresa la clave de administrador");
-        return;
-      }
-
-      if (claveAdmin.trim() !== "12345") {
+    if (rol === "admin" || rol === "seguridad") {
+      if (claveAdmin !== "admin123") {
         Alert.alert("Error", "Clave de administrador incorrecta");
         return;
       }
-
-    } else {
-
-      if (!placa) {
-        Alert.alert("Error", "Debes ingresar la placa");
-        return;
-      }
     }
-    try {
 
+    if (!aceptaTerminos) {
+      Alert.alert("Error", "Debes aceptar los términos y condiciones");
+      return;
+    }
+
+    try {
       const data = {
         nombre: nombre.trim(),
         cedula: cedula.trim(),
         clave: password,
         rol: rol.toLowerCase(),
-        placa: rol === "admin" ? "" : placa.toUpperCase().trim(),
-        tipoVehiculo: rol === "admin" ? "" : tipoVehiculo.toLowerCase(),
+        placa: placa.toUpperCase().trim(),
+        tipoVehiculo: tipoVehiculo.toLowerCase(),
         aceptaTerminos: aceptaTerminos ? 1 : 0,
+        claveAdmin: claveAdmin,
       };
+
       const response = await fetch(
-        "http://192.168.26.9/eficient-parking-lot/registro.php",
+        "http://192.168.1.40/eficient-parking-lot/registro.php",
         {
           method: "POST",
           headers: {
@@ -74,7 +74,6 @@ export default function Registro() {
       const result = await response.json();
 
       if (result.success) {
-
         Alert.alert("✅ Registro exitoso");
 
         setNombre("");
@@ -84,7 +83,6 @@ export default function Registro() {
         setAceptaTerminos(false);
 
         router.replace("/login");
-
       } else {
         Alert.alert("Error", result.message || "Ocurrió un error");
       }
@@ -112,80 +110,73 @@ export default function Registro() {
         Completa los datos para crear tu cuenta
       </Text>
 
-      <Text style={[styles.label, { color: "#fff" }]}>Nombre</Text>
+      <Text style={styles.label}>Nombre</Text>
       <TextInput
         style={styles.input}
         placeholder="Nombre completo"
+        placeholderTextColor="#64748B"
         value={nombre}
         onChangeText={setNombre}
       />
 
-      <Text style={[styles.label, { color: "#fff" }]}>Cédula</Text>
+      <Text style={styles.label}>Cédula</Text>
       <TextInput
         style={styles.input}
         placeholder="Número de cédula"
+        placeholderTextColor="#64748B"
         keyboardType="numeric"
         value={cedula}
         onChangeText={setCedula}
       />
 
-      <Text style={[styles.label, { color: "#fff" }]}>Contraseña</Text>
+      <Text style={styles.label}>Contraseña</Text>
       <TextInput
         style={styles.input}
         placeholder="********"
+        placeholderTextColor="#64748B"
         secureTextEntry
         value={password}
         onChangeText={setPassword}
       />
 
-      <Text style={[styles.label, { color: "#fff" }]}>Rol</Text>
+      <Text style={styles.label}>Rol</Text>
       <View style={styles.row}>
 
         <TouchableOpacity
           style={[styles.boton, rol === "estudiante" && styles.activo]}
           onPress={() => setRol("estudiante")}
         >
-          <Text>🧑‍🎓 Estudiante</Text>
+          <Text style={{ color: rol === "estudiante" ? "#fff" : "#94A3B8" }}>🧑‍🎓 Usuario</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.boton, rol === "admin" && styles.activo]}
           onPress={() => setRol("admin")}
         >
-          <Text>👨‍💻 Admin</Text>
+          <Text style={{ color: rol === "admin" ? "#fff" : "#94A3B8" }}>👨‍💻 Administrador</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.boton, rol === "seguridad" && styles.activo]}
+          onPress={() => setRol("seguridad")}
+        >
+          <Text style={{ color: rol === "seguridad" ? "#fff" : "#94A3B8" }}>👮 Seguridad</Text>
         </TouchableOpacity>
 
       </View>
-      {/* 🔥 CAMBIO DINÁMICO SEGÚN ROL */}
-      {rol === "admin" ? (
-        <>
-          <Text style={[styles.label, { color: "#fff" }]}>
-            Clave de administrador
-          </Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Clave secreta"
-            secureTextEntry
-            value={claveAdmin}
-            onChangeText={setClaveAdmin}
-          />
-        </>
-      ) : (
-        <>
-          <Text style={[styles.label, { color: "#fff" }]}>Placa</Text>
+
+      {rol === "estudiante" ? (
+        <View>
+          <Text style={styles.label}>Placa</Text>
           <TextInput
             style={styles.input}
             placeholder="ABC123"
+            placeholderTextColor="#64748B"
             value={placa}
             onChangeText={(text) => setPlaca(text.toUpperCase())}
           />
-        </>
-      )}
 
-      {/* 🔥 SOLO PARA ESTUDIANTES */}
-      {rol !== "admin" && (
-        <>
-          <Text style={[styles.label, { color: "#fff" }]}>
+          <Text style={styles.label}>
             Tipo de vehículo
           </Text>
 
@@ -194,49 +185,57 @@ export default function Registro() {
               style={[styles.boton, tipoVehiculo === "carro" && styles.activo]}
               onPress={() => setTipoVehiculo("carro")}
             >
-              <Text>🚗 Carro</Text>
+              <Text style={{ color: tipoVehiculo === "carro" ? "#fff" : "#94A3B8" }}>🚗 Carro</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={[styles.boton, tipoVehiculo === "moto" && styles.activo]}
               onPress={() => setTipoVehiculo("moto")}
             >
-              <Text>🏍️ Moto</Text>
+              <Text style={{ color: tipoVehiculo === "moto" ? "#fff" : "#94A3B8" }}>🏍️ Moto</Text>
             </TouchableOpacity>
           </View>
-        </>
+        </View>
+      ) : (
+        <View>
+          <Text style={styles.label}>
+            Clave de administrador
+          </Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Clave secreta"
+            placeholderTextColor="#64748B"
+            secureTextEntry
+            value={claveAdmin}
+            onChangeText={setClaveAdmin}
+          />
+        </View>
       )}
 
-      <View style={styles.row}>
-
-        <TouchableOpacity
-          style={[styles.boton, tipoVehiculo === "carro" && styles.activo]}
-          onPress={() => setTipoVehiculo("carro")}
-        >
-          <Text>🚗 Carro</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.boton, tipoVehiculo === "moto" && styles.activo]}
-          onPress={() => setTipoVehiculo("moto")}
-        >
-          <Text>🏍️ Moto</Text>
-        </TouchableOpacity>
-
-      </View>
-
       <TouchableOpacity
-        style={styles.boton}
+        style={[styles.boton, { marginTop: 25 }]}
         onPress={() => setAceptaTerminos(!aceptaTerminos)}
       >
-        <Text>
-          {aceptaTerminos
-            ? "☑ Acepto términos y condiciones"
-            : "☐ Acepto términos y condiciones"}
+        <Text style={{ color: "#94A3B8" }}>
+          {aceptaTerminos ? "☑ " : "☐ "}
+
+          <Text
+            style={{ textDecorationLine: "underline", color: "#94A3B8" }}
+            onPress={() =>
+              Linking.openURL(
+                "https://www.minjusticia.gov.co/ministerio/Documents/SIG/_pol%C3%ADtica%20de%20tratamiento%20y%20protecci%C3%B3n%20datos%20personales.pdf"
+              )
+            }
+          >
+            Acepto términos y condiciones
+          </Text>
         </Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.botonGuardar} onPress={registrar}>
+      <TouchableOpacity
+        style={styles.botonGuardar}
+        onPress={registrar}
+      >
         <Text style={styles.textoGuardar}>
           GUARDAR
         </Text>
@@ -254,82 +253,107 @@ export default function Registro() {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 30,
-    paddingBottom: 100,
-    alignItems: "center"
+    paddingHorizontal: 20,
+    paddingTop: 40,
+    paddingBottom: 60,
+    alignItems: "stretch",
+    backgroundColor: "#0F172A",
+    flexGrow: 1,
   },
-
   logo: {
-    width: 140,
-    height: 140,
-    marginBottom: 10
-  },
-
-  titulo: {
-    fontSize: 24,
-    fontWeight: "bold",
-    textAlign: "center",
+    width: 120,
+    height: 120,
+    alignSelf: "center",
     marginBottom: 10,
   },
-
+  titulo: {
+    fontSize: 26,
+    fontWeight: "900",
+    textAlign: "center",
+    marginBottom: 8,
+    letterSpacing: 1,
+  },
   subtitulo: {
     textAlign: "center",
     marginBottom: 20,
+    color: "#94A3B8",
+    fontSize: 16,
   },
-
   label: {
-    fontWeight: "bold",
-    marginTop: 10,
-    alignSelf: "flex-start"
+    fontWeight: "600",
+    marginTop: 15,
+    marginBottom: 5,
+    alignSelf: "flex-start",
+    color: "#CBD5E1",
+    fontSize: 14,
   },
-
   input: {
     width: "100%",
     borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 5,
-    backgroundColor: "#fff"
+    borderColor: "#334155",
+    borderRadius: 12,
+    padding: 14,
+    backgroundColor: "#1E293B",
+    color: "#F8FAFC",
+    fontSize: 16,
   },
-
   row: {
     flexDirection: "row",
-    flexWrap: "wrap",
+    justifyContent: "space-between",
     marginTop: 10,
-    justifyContent: "center"
   },
-
+  rowVehiculo: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 10,
+  },
   boton: {
+    flex: 1,
     borderWidth: 1,
-    borderColor: "#ccc",
-    padding: 10,
-    borderRadius: 8,
-    marginRight: 10,
+    borderColor: "#334155",
+    backgroundColor: "#1E293B",
+    paddingVertical: 12,
+    borderRadius: 10,
+    marginRight: 6,
     marginTop: 10,
+    alignItems: "center",
   },
-
   activo: {
-    backgroundColor: "#007AFF",
+    backgroundColor: "#2563EB",
+    borderColor: "#3B82F6",
   },
-
   botonGuardar: {
-    backgroundColor: "#28a745",
-    padding: 15,
-    borderRadius: 8,
+    backgroundColor: "#10B981", // Emerald Green for success/save
+    padding: 16,
+    borderRadius: 12,
     marginTop: 25,
     alignItems: "center",
-    width: "100%"
+    width: "100%",
+    shadowColor: "#10B981",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
-
   textoGuardar: {
     color: "#fff",
     fontWeight: "bold",
+    fontSize: 16,
+    letterSpacing: 0.5,
   },
-
+  terminos: {
+    borderWidth: 1,
+    borderColor: "#334155",
+    backgroundColor: "#1E293B",
+    padding: 14,
+    borderRadius: 12,
+    marginTop: 25,
+  },
   link: {
     textAlign: "center",
-    marginTop: 20,
-    color: "#007AFF",
+    marginTop: 35,
+    color: "#94A3B8",
+    fontSize: 15,
   },
 });
+

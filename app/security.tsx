@@ -1,324 +1,953 @@
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useAuth } from '@/context/AuthContext';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
+
 import {
   Alert,
   FlatList,
-  ScrollView,
+  Modal,
   StyleSheet,
+  TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View
 } from 'react-native';
-
-import { CameraView, useCameraPermissions } from 'expo-camera';
 
 export default function SecurityScreen() {
 
   const router = useRouter();
+
   const { user, logout } = useAuth();
 
-  const [qrCode, setQrCode] = useState('');
-  const [verifications, setVerifications] = useState<any[]>([]);
+  const [usuarioEncontrado, setUsuarioEncontrado] = useState<any>(null);
+
+  const [placaDetectada, setPlacaDetectada] = useState("");
+
   const [loading, setLoading] = useState(true);
 
   const [permission, requestPermission] = useCameraPermissions();
+
   const [scanned, setScanned] = useState(false);
+
+  // 🅿️ ESPACIOS
+  const [zonas, setZonas] = useState<any[]>([]);
+
+  const [todosEspacios, setTodosEspacios] = useState<any[]>([]);
+
+  const [espacios, setEspacios] = useState<any[]>([]);
+
+  // 👤 VISITANTES
+  const [modalAsignar, setModalAsignar] = useState(false);
+
+  const [visitanteNombre, setVisitanteNombre] = useState("");
+
+  const [visitantePlaca, setVisitantePlaca] = useState("");
+
+  const [selectedEspacio, setSelectedEspacio] = useState<any>(null);
 
   useEffect(() => {
 
     if (!user) {
+
       router.replace('/login');
+
       return;
+
     }
 
-    if (user.rol !== 'security' && user.rol !== 'seguridad') {
-      Alert.alert('Error', 'No autorizado');
+    if (
+      user.rol !== 'security' &&
+      user.rol !== 'seguridad'
+    ) {
+
+      Alert.alert(
+        'Error',
+        'No autorizado'
+      );
+
       router.replace('/login');
+
       return;
+
     }
+
+    cargarTodo();
 
     setLoading(false);
 
   }, [user]);
 
-  // 🔥 NUEVA LÓGICA DE QR
-  const handleVerifyQR = () => {
+  /* ========================================
+      ESCANEAR QR / PLACA
+  ======================================== */
 
-    if (!qrCode.trim()) {
-      Alert.alert('Error', 'Ingresa o escanea un código QR');
-      return;
-    }
-
-    const parts = qrCode.split('-');
-
-    // 🔥 VALIDAR FORMATO NUEVO
-    if (parts[0] !== 'USER' || parts[3] !== 'ESPACIO') {
-      Alert.alert('Error', 'Código QR inválido');
-      return;
-    }
-
-    const nombre = parts[1];
-    const cedula = parts[2];
-    const espacio = parts[4];
-
-    const newVerification = {
-      id: `verify-${Date.now()}`,
-      nombre,
-      cedula,
-      espacio,
-      verificadoPor: user?.nombre,
-      timestamp: new Date().toLocaleTimeString(),
-    };
-
-    setVerifications([newVerification, ...verifications]);
-    setQrCode('');
-    setScanned(false);
-
-    Alert.alert(
-      '✅ Acceso permitido',
-      `Usuario: ${nombre}\nEspacio: ${espacio}`
-    );
-  };
-
-  // 📷 ESCANEO QR
   const handleBarCodeScanned = ({ data }: any) => {
-    setScanned(true);
-    setQrCode(data);
 
-    // 🔥 IMPORTANTE: usar directamente el data
-    setTimeout(() => {
+    setScanned(true);
+
+    // QR
+    if (data.includes("USER-")) {
+
       handleVerifyQRWithData(data);
-    }, 300);
+
+      return;
+
+    }
+
+    // PLACA
+    manejarPlacaEscaneada(data);
+
   };
 
-  // 🔥 FUNCIÓN EXTRA PARA EVITAR ERROR DE ESTADO
-  const handleVerifyQRWithData = (dataQR: string) => {
+  /* ========================================
+      MANEJAR PLACA
+  ======================================== */
+
+  const manejarPlacaEscaneada = async (
+    placaEscaneada: string
+  ) => {
+
+    try {
+
+      const placaLimpia = placaEscaneada
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, '');
+
+      setPlacaDetectada(placaLimpia);
+
+      // ¿YA TIENE PARQUEADERO?
+
+      const responseActiva = await fetch(
+        "http://192.168.1.40/eficient-parking-lot/buscar_placa_activa.php",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type": "application/json"
+          },
+
+          body: JSON.stringify({
+            placa: placaLimpia
+          })
+        }
+      );
+
+      const activaData = await responseActiva.json();
+
+      if (activaData.tieneParqueadero) {
+
+        const usuario = activaData.usuario;
+
+        Alert.alert(
+          "✅ Parqueadero activo",
+
+          `Usuario: ${usuario.nombre}
+Placa: ${usuario.placa}
+Espacio: ${usuario.numero}`
+        );
+
+        return;
+
+      }
+
+      // BUSCAR USUARIO
+
+      const responseUsuario = await fetch(
+        "http://192.168.1.40/eficient-parking-lot/buscar_usuario_placa.php",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type": "application/json"
+          },
+
+          body: JSON.stringify({
+            placa: placaLimpia
+          })
+        }
+      );
+
+      const usuarioData = await responseUsuario.json();
+
+      if (usuarioData.registrado) {
+
+        setUsuarioEncontrado(
+          usuarioData.usuario
+        );
+
+        Alert.alert(
+          "🚗 Usuario registrado",
+
+          `${usuarioData.usuario.nombre}
+Seleccione un espacio`
+        );
+
+        return;
+
+      }
+
+      // CREAR VISITANTE
+
+      const responseVisitante = await fetch(
+        "http://192.168.1.40/eficient-parking-lot/crear_visitante.php",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type": "application/json"
+          },
+
+          body: JSON.stringify({
+            placa: placaLimpia
+          })
+        }
+      );
+
+      const visitanteData =
+        await responseVisitante.json();
+
+      if (visitanteData.success) {
+
+        setUsuarioEncontrado(
+          visitanteData.usuario
+        );
+
+        Alert.alert(
+          "👤 Visitante creado",
+          "Seleccione un espacio"
+        );
+
+      }
+
+    } catch (error) {
+
+      console.log(error);
+
+      Alert.alert(
+        "Error",
+        "No se pudo procesar la placa"
+      );
+
+    }
+
+  };
+
+  /* ========================================
+      VALIDAR QR
+  ======================================== */
+
+  const handleVerifyQRWithData = (
+    dataQR: string
+  ) => {
 
     const parts = dataQR.split('-');
 
-    if (parts[0] !== 'USER' || parts[3] !== 'ESPACIO') {
-      Alert.alert('Error', 'Código QR inválido');
+    if (
+      parts[0] !== 'USER' ||
+      parts[3] !== 'ESPACIO'
+    ) {
+
+      Alert.alert(
+        'Error',
+        'Código QR inválido'
+      );
+
       return;
+
     }
 
     const nombre = parts[1];
-    const cedula = parts[2];
-    const espacio = parts[4];
-
-    const newVerification = {
-      id: `verify-${Date.now()}`,
-      nombre,
-      cedula,
-      espacio,
-      verificadoPor: user?.nombre,
-      timestamp: new Date().toLocaleTimeString(),
-    };
-
-    setVerifications((prev) => [newVerification, ...prev]);
 
     Alert.alert(
       '✅ Acceso permitido',
-      `Usuario: ${nombre}\nEspacio: ${espacio}`
+      `Usuario: ${nombre}`
     );
+
   };
+
+  /* ========================================
+      CARGAR ESPACIOS
+  ======================================== */
+
+  const cargarTodo = async () => {
+
+    try {
+
+      const res = await fetch(
+        "http://192.168.1.40/eficient-parking-lot/admin_espacios.php"
+      );
+
+      const data = await res.json();
+
+      const todos = [
+
+        ...(data.libres || []),
+
+        ...(data.ocupados || []),
+
+        ...(data.porVencer || []),
+
+      ];
+
+      setTodosEspacios(todos);
+
+      const zonasMap: any = {};
+
+      todos.forEach((e: any) => {
+
+        if (!zonasMap[e.zonaId]) {
+
+          let nombre = "";
+
+          let color = "";
+
+          switch (Number(e.zonaId)) {
+
+            case 1:
+              nombre = "🏢 Administrativa";
+              color = "#1D4ED8";
+              break;
+
+            case 2:
+              nombre = "📚 Biblioteca";
+              color = "#2563EB";
+              break;
+
+            case 3:
+              nombre = "🎭 Auditorio";
+              color = "#3B82F6";
+              break;
+
+            case 4:
+              nombre = "🍔 Cafetería";
+              color = "#60A5FA";
+              break;
+
+            case 5:
+              nombre = "🧪 Laboratorios";
+              color = "#93C5FD";
+              break;
+
+          }
+
+          zonasMap[e.zonaId] = {
+
+            id: e.zonaId,
+
+            nombre,
+
+            color
+
+          };
+
+        }
+
+      });
+
+      setZonas(
+        Object.values(zonasMap)
+      );
+
+    } catch (error) {
+
+      console.log(error);
+
+    }
+
+  };
+
+  /* ========================================
+      FILTRAR ZONA
+  ======================================== */
+
+  const seleccionarZona = (zona: any) => {
+
+    const filtrados = todosEspacios.filter(
+      (e: any) =>
+        Number(e.zonaId) === Number(zona.id)
+    );
+
+    setEspacios(filtrados);
+
+  };
+
+  /* ========================================
+      ASIGNAR USUARIO
+  ======================================== */
+
+  const asignarUsuarioExistente = async (
+    espacio: any
+  ) => {
+
+    try {
+
+      const response = await fetch(
+        "http://192.168.1.40/eficient-parking-lot/asignar_usuario.php",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type": "application/json"
+          },
+
+          body: JSON.stringify({
+
+            usuarioId: usuarioEncontrado.id,
+
+            espacioId: espacio.id
+
+          })
+        }
+      );
+
+      const data = await response.json();
+
+      if (data.success) {
+
+        Alert.alert(
+          "✅ Parqueadero asignado"
+        );
+
+        setUsuarioEncontrado(null);
+
+        setPlacaDetectada("");
+
+        cargarTodo();
+
+      } else {
+
+        Alert.alert(
+          "Error",
+          data.message || "No se pudo asignar"
+        );
+
+      }
+
+    } catch (error) {
+
+      console.log(error);
+
+      Alert.alert(
+        "Error servidor"
+      );
+
+    }
+
+  };
+
+  /* ========================================
+      CLICK ESPACIO
+  ======================================== */
+
+  const handleEspacioClick = (
+    espacio: any
+  ) => {
+
+    if (espacio.estado === "libre") {
+
+      setSelectedEspacio(espacio);
+
+      if (usuarioEncontrado) {
+
+        asignarUsuarioExistente(
+          espacio
+        );
+
+      } else {
+
+        setModalAsignar(true);
+
+      }
+
+      return;
+
+    }
+
+    Alert.alert(
+      "Ocupado",
+
+      `Usuario: ${espacio.nombre}
+Cédula: ${espacio.cedula}`
+    );
+
+  };
+
+  /* ========================================
+      VISITANTE MANUAL
+  ======================================== */
+
+  const asignarVisitante = async () => {
+
+    if (
+      !visitanteNombre ||
+      !visitantePlaca
+    ) {
+
+      Alert.alert(
+        "Error",
+        "Completa los datos"
+      );
+
+      return;
+
+    }
+
+    try {
+
+      const response = await fetch(
+        "http://192.168.1.40/eficient-parking-lot/asignar_visitante.php",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type": "application/json"
+          },
+
+          body: JSON.stringify({
+
+            nombre: visitanteNombre,
+
+            placa: visitantePlaca,
+
+            espacioId: selectedEspacio.id
+
+          })
+        }
+      );
+
+      const data = await response.json();
+
+      if (data.success) {
+
+        Alert.alert(
+          "✅ Asignado"
+        );
+
+        setModalAsignar(false);
+
+        setVisitanteNombre("");
+
+        setVisitantePlaca("");
+
+        cargarTodo();
+
+      }
+
+    } catch {
+
+      Alert.alert(
+        "Error servidor"
+      );
+
+    }
+
+  };
+
+  /* ========================================
+      LOGOUT
+  ======================================== */
 
   const handleLogout = () => {
+
     logout();
+
     router.replace('/login');
+
   };
 
-  if (loading) {
-    return (
-      <ThemedView style={styles.container}>
-        <ThemedText>Cargando...</ThemedText>
-      </ThemedView>
-    );
-  }
+  if (loading) return null;
 
   return (
 
-    <ScrollView style={styles.container}>
+    <>
 
-      {/* HEADER */}
-      <ThemedView style={styles.header}>
-        <ThemedView style={styles.headerTop}>
+      <FlatList
 
-          <ThemedView>
-            <ThemedText type="title" style={styles.headerTitle}>
-              🔐 Guarda de Seguridad
-            </ThemedText>
+        contentContainerStyle={{
+          paddingBottom: 40
+        }}
 
-            <ThemedText style={styles.userInfo}>
-              {user?.nombre} ({user?.cedula})
-            </ThemedText>
-          </ThemedView>
+        ListHeaderComponent={
 
-          <TouchableOpacity
-            style={styles.logoutButton}
-            onPress={handleLogout}
-          >
-            <ThemedText style={styles.logoutButtonText}>
-              Salir
-            </ThemedText>
-          </TouchableOpacity>
+          <ThemedView style={styles.container}>
 
-        </ThemedView>
-      </ThemedView>
+            <View style={styles.safeTop} />
 
-      {/* CONTENIDO */}
-      <ThemedView style={styles.content}>
+            {/* HEADER */}
+            <ThemedView style={styles.header}>
 
-        <ThemedText type="subtitle" style={styles.sectionTitle}>
-          🚗 Escanear Código QR
-        </ThemedText>
+              <ThemedText style={styles.title}>
+                🔐 Seguridad
+              </ThemedText>
 
-        {!permission ? (
-          <ThemedText>Solicitando permiso...</ThemedText>
-        ) : !permission.granted ? (
-          <TouchableOpacity onPress={requestPermission}>
-            <ThemedText>Dar permiso a la cámara</ThemedText>
-          </TouchableOpacity>
-        ) : (
-          <View style={{ height: 300, overflow: 'hidden', borderRadius: 10 }}>
-            <CameraView
-              onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
-              style={{ flex: 1 }}
-              barcodeScannerSettings={{
-                barcodeTypes: ["qr"],
-              }}
-            />
-          </View>
-        )}
+              <TouchableOpacity
+                onPress={handleLogout}
+              >
 
-        <TouchableOpacity
-          style={[styles.verifyButton, { backgroundColor: '#3498DB' }]}
-          onPress={() => setScanned(false)}
-        >
-          <ThemedText style={styles.verifyButtonText}>
-            🔄 Escanear de nuevo
-          </ThemedText>
-        </TouchableOpacity>
-
-        {/* HISTORIAL */}
-        <ThemedText
-          type="subtitle"
-          style={[styles.sectionTitle, { marginTop: 24 }]}
-        >
-          📋 Últimas Verificaciones
-        </ThemedText>
-
-        {verifications.length === 0 ? (
-
-          <ThemedView style={styles.emptyState}>
-            <ThemedText style={styles.emptyText}>
-              Sin registros aún
-            </ThemedText>
-          </ThemedView>
-
-        ) : (
-
-          <FlatList
-            data={verifications.slice(0, 10)}
-            keyExtractor={(item) => item.id}
-            scrollEnabled={false}
-            renderItem={({ item }) => (
-
-              <ThemedView style={styles.certCard}>
-
-                <ThemedView style={styles.certHeader}>
-                  <ThemedText style={styles.certPlate}>
-                    {item.nombre}
-                  </ThemedText>
-
-                  <ThemedText style={styles.certTime}>
-                    {item.timestamp}
-                  </ThemedText>
-                </ThemedView>
-
-                <ThemedText style={styles.certInfo}>
-                  Espacio: #{item.espacio}
+                <ThemedText style={styles.logout}>
+                  Salir
                 </ThemedText>
 
-              </ThemedView>
+              </TouchableOpacity>
+
+            </ThemedView>
+
+            {/* CÁMARA */}
+            <View style={styles.cameraContainer}>
+
+              {!permission ? (
+
+                <ThemedText style={{ color: '#fff' }}>
+                  Permiso...
+                </ThemedText>
+
+              ) : !permission.granted ? (
+
+                <TouchableOpacity
+                  style={styles.permissionBtn}
+                  onPress={requestPermission}
+                >
+
+                  <ThemedText style={{ color: '#fff' }}>
+                    Dar permiso a cámara
+                  </ThemedText>
+
+                </TouchableOpacity>
+
+              ) : (
+
+                <CameraView
+                  onBarcodeScanned={
+                    scanned
+                      ? undefined
+                      : handleBarCodeScanned
+                  }
+
+                  style={styles.camera}
+                />
+
+              )}
+
+            </View>
+
+            {/* REESCANEAR */}
+            <TouchableOpacity
+              onPress={() => setScanned(false)}
+              style={styles.scanAgainBtn}
+            >
+
+              <ThemedText style={{ color: '#fff' }}>
+                Escanear nuevamente
+              </ThemedText>
+
+            </TouchableOpacity>
+
+            {/* PLACA */}
+            {placaDetectada !== "" && (
+
+              <View style={styles.placaBox}>
+
+                <ThemedText style={styles.placaText}>
+                  🚗 {placaDetectada}
+                </ThemedText>
+
+              </View>
 
             )}
-          />
+
+            {/* ZONAS */}
+            <ThemedText style={styles.sectionTitle}>
+              Seleccionar zona
+            </ThemedText>
+
+            <View style={styles.zonasContainer}>
+
+              {zonas.map((zona) => (
+
+                <TouchableOpacity
+
+                  key={zona.id}
+
+                  onPress={() =>
+                    seleccionarZona(zona)
+                  }
+
+                  style={[
+                    styles.zonaBtn,
+                    {
+                      backgroundColor:
+                        zona.color
+                    }
+                  ]}
+                >
+
+                  <ThemedText style={styles.zonaText}>
+                    {zona.nombre}
+                  </ThemedText>
+
+                </TouchableOpacity>
+
+              ))}
+
+            </View>
+
+          </ThemedView>
+
+        }
+
+        data={espacios}
+
+        keyExtractor={(item) =>
+          item.id.toString()
+        }
+
+        renderItem={({ item }) => (
+
+          <TouchableOpacity
+
+            onPress={() =>
+              handleEspacioClick(item)
+            }
+
+            style={[
+              styles.espacioBox,
+
+              {
+                backgroundColor:
+
+                  item.estado === "libre"
+                    ? "#22C55E"
+
+                    : item.estado === "por vencer"
+                      ? "#F59E0B"
+
+                      : "#EF4444",
+              }
+            ]}
+          >
+
+            <ThemedText style={styles.espacioText}>
+              {item.numero}
+            </ThemedText>
+
+          </TouchableOpacity>
 
         )}
 
-      </ThemedView>
+        numColumns={5}
 
-    </ScrollView>
+      />
+
+      {/* MODAL */}
+      <Modal
+        visible={modalAsignar}
+        transparent
+        animationType="fade"
+      >
+
+        <TouchableWithoutFeedback
+          onPress={() => setModalAsignar(false)}
+        >
+
+          <View style={styles.modalOverlay}>
+
+            <TouchableWithoutFeedback>
+
+              <View style={styles.modalBox}>
+
+                <ThemedText style={styles.modalTitle}>
+                  👤 Registrar visitante
+                </ThemedText>
+
+                <TextInput
+                  placeholder="Nombre visitante"
+                  value={visitanteNombre}
+                  onChangeText={setVisitanteNombre}
+                  style={styles.input}
+                />
+
+                <TextInput
+                  placeholder="Placa"
+                  value={visitantePlaca}
+                  onChangeText={setVisitantePlaca}
+                  style={styles.input}
+                />
+
+                <TouchableOpacity
+                  onPress={asignarVisitante}
+                  style={styles.btn}
+                >
+
+                  <ThemedText style={{ color: '#fff' }}>
+                    Asignar espacio
+                  </ThemedText>
+
+                </TouchableOpacity>
+
+              </View>
+
+            </TouchableWithoutFeedback>
+
+          </View>
+
+        </TouchableWithoutFeedback>
+
+      </Modal>
+
+    </>
 
   );
+
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+
+  container: {
+    padding: 16,
+    backgroundColor: '#0F172A'
+  },
+
+  safeTop: {
+    height: 35
+  },
+
   header: {
-    paddingHorizontal: 16,
-    paddingVertical: 20,
-    backgroundColor: '#E74C3C',
-  },
-  headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'center'
   },
-  headerTitle: { color: '#fff' },
-  userInfo: {
-    fontSize: 12,
-    opacity: 0.9,
-    marginTop: 4,
+
+  title: {
     color: '#fff',
+    fontSize: 30,
+    fontWeight: 'bold'
   },
-  logoutButton: {
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 4,
-  },
-  logoutButtonText: {
+
+  logout: {
     color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
+    fontSize: 16
   },
-  content: { padding: 16 },
-  sectionTitle: { marginBottom: 16, marginTop: 8 },
-  verifyButton: {
-    marginTop: 16,
-    backgroundColor: '#27AE60',
-    paddingVertical: 12,
-    borderRadius: 6,
-    alignItems: 'center',
+
+  cameraContainer: {
+    height: 260,
+    overflow: 'hidden',
+    borderRadius: 20,
+    marginTop: 20,
+    backgroundColor: '#1E293B'
   },
-  verifyButtonText: {
+
+  camera: {
+    flex: 1
+  },
+
+  permissionBtn: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+
+  scanAgainBtn: {
+    marginTop: 15,
+    backgroundColor: '#2563EB',
+    padding: 14,
+    borderRadius: 14,
+    alignItems: 'center'
+  },
+
+  placaBox: {
+    marginTop: 15,
+    backgroundColor: '#1E293B',
+    padding: 16,
+    borderRadius: 16,
+    alignItems: 'center'
+  },
+
+  placaText: {
     color: '#fff',
-    fontWeight: 'bold',
+    fontSize: 24,
+    fontWeight: 'bold'
   },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 30,
+
+  sectionTitle: {
+    color: '#fff',
+    fontSize: 18,
+    marginTop: 20,
+    marginBottom: 12,
+    fontWeight: 'bold'
   },
-  emptyText: { color: '#999' },
-  certCard: {
-    backgroundColor: '#f5f5f5',
-    borderRadius: 6,
-    padding: 10,
-    marginBottom: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: '#27AE60',
-  },
-  certHeader: {
+
+  zonasContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between'
   },
-  certPlate: { fontWeight: 'bold' },
-  certTime: {
-    fontSize: 11,
-    opacity: 0.6,
+
+  zonaBtn: {
+    width: '48%',
+    paddingVertical: 16,
+    borderRadius: 18,
+    marginBottom: 12,
+    alignItems: 'center'
   },
-  certInfo: { fontSize: 12 },
+
+  zonaText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16
+  },
+
+  espacioBox: {
+    width: 58,
+    height: 58,
+    margin: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 14
+  },
+
+  espacioText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 18
+  },
+
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.6)'
+  },
+
+  modalBox: {
+    backgroundColor: '#fff',
+    padding: 20,
+    margin: 20,
+    borderRadius: 16,
+    width: '85%'
+  },
+
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 15
+  },
+
+  input: {
+    backgroundColor: '#F1F5F9',
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 10
+  },
+
+  btn: {
+    backgroundColor: '#10B981',
+    padding: 14,
+    marginTop: 10,
+    alignItems: 'center',
+    borderRadius: 10
+  }
+
 });

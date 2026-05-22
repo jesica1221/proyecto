@@ -8,68 +8,83 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 
+/* =========================
+   Componente Login
+========================= */
 export default function Login() {
-
   const router = useRouter();
   const { setUser } = useAuth();
-
+  const [isLoading, setIsLoading] = useState(false);
+  /* ===== Estados ===== */
   const [cedula, setCedula] = useState("");
   const [password, setPassword] = useState("");
 
+  /* =========================
+     Función iniciar sesión
+  ========================= */
   const iniciarSesion = async () => {
-
     console.log("BOTON INICIAR SESIÓN PRESIONADO");
 
+    /* ===== Validación ===== */
     if (!cedula || !password) {
       Alert.alert("Error", "Ingresa cédula y contraseña");
       return;
     }
 
     try {
-
       console.log("ANTES DEL FETCH");
 
-      const response = await fetch("http://192.168.26.9/eficient-parking-lot/login.php", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded"
-        },
-        body: `cedula=${cedula}&password=${password}`
-      });
+      const response = await fetch(
+        "http://192.168.1.40/eficient-parking-lot/login.php",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: `cedula=${cedula}&password=${password}`,
+        }
+      );
 
       console.log("DESPUES DEL FETCH");
 
       const data = await response.json();
 
+      /* ===== Debug ===== */
       console.log("DATA COMPLETA:", data);
       console.log("ZONA QUE LLEGA:", data?.zona || data?.user?.zona);
 
+      /* ===== Validación respuesta ===== */
       if (!data || !data.success) {
         Alert.alert("Error", data?.message || "Credenciales incorrectas");
         return;
       }
 
-      const userData = data.user ? {
-        ...data.user,
-        zona: data.user.zona
-      } : {
-        nombre: data.nombre,
-        cedula: data.cedula,
-        rol: data.rol,
-        placa: data.placa,
-        tipoVehiculo: data.tipoVehiculo,
-        zona: data.zona
-      };
+      /* ===== Construcción del usuario ===== */
+      const userData = data.user
+        ? {
+          ...data.user,
+          zona: data.user.zona,
+        }
+        : {
+          nombre: data.nombre,
+          cedula: data.cedula,
+          rol: data.rol,
+          placa: data.placa,
+          tipoVehiculo: data.tipoVehiculo,
+          zona: data.zona,
+        };
 
       console.log("USUARIO FINAL:", userData);
 
+      /* ===== Guardar usuario ===== */
       setUser(userData);
 
+      /* ===== Redirección por rol ===== */
+      console.log("ROL QUE LLEGA:", userData?.rol);
       const rol = (userData?.rol || "").toLowerCase().trim();
-
       console.log("ROL:", rol);
 
       if (rol.includes("admin")) {
@@ -81,131 +96,136 @@ export default function Login() {
       } else {
         Alert.alert("Error", "Rol no reconocido: " + rol);
       }
-
     } catch (error) {
       console.log("ERROR EN EL FETCH", error);
       Alert.alert("Error", "No se pudo conectar al servidor");
     }
   };
 
+  /* =========================
+     Render
+  ========================= */
   return (
-
     <View style={styles.container}>
-
-      {/* 🔥 LOGO */}
+      {/* ===== Logo ===== */}
       <Image
-        source={require('./logo.png')}
+        source={require("./logo.png")}
         style={styles.logo}
         resizeMode="contain"
       />
 
-      {/* 🔥 TITULO */}
-      <Text style={[styles.titulo, { color: '#fff' }]}>
+      {/* ===== Títulos ===== */}
+      <Text style={[styles.titulo, { color: "#fff" }]}>
         EFICIENT PARKING LOT
       </Text>
-
       <Text style={styles.subtitle}>
         Eficiencia de parqueo a un click
       </Text>
 
+      {/* ===== Input Cédula ===== */}
       <Text style={styles.label}>CÉDULA</Text>
-
       <TextInput
         style={styles.input}
         placeholder="Ingresa tu cédula"
+        placeholderTextColor="#64748B"
         keyboardType="numeric"
         value={cedula}
         onChangeText={setCedula}
       />
 
+      {/* ===== Input Contraseña ===== */}
       <Text style={styles.label}>CONTRASEÑA</Text>
-
       <TextInput
         style={styles.input}
         placeholder="********"
+        placeholderTextColor="#64748B"
         secureTextEntry
         value={password}
         onChangeText={setPassword}
       />
 
+      {/* ===== Botón Login ===== */}
       <TouchableOpacity style={styles.boton} onPress={iniciarSesion}>
         <Text style={styles.texto}>INICIAR SESIÓN</Text>
       </TouchableOpacity>
 
+      {/* ===== Link Registro ===== */}
       <TouchableOpacity onPress={() => router.push("/registro")}>
         <Text style={styles.link}>
           ¿No tienes cuenta? Registrarse
         </Text>
       </TouchableOpacity>
-
     </View>
-
   );
-
 }
 
+/* =========================
+   Estilos
+========================= */
 const styles = StyleSheet.create({
-
   container: {
     flex: 1,
     justifyContent: "center",
     padding: 30,
-    backgroundColor: "#2C3E50"
+    backgroundColor: "#0F172A",
   },
-
   logo: {
-    width: 120,
-    height: 120,
+    width: 130,
+    height: 130,
     alignSelf: "center",
-    marginBottom: 10
+    marginBottom: 20,
   },
-
   titulo: {
-    fontSize: 26,
-    fontWeight: "bold",
+    fontSize: 28,
+    fontWeight: "900",
     textAlign: "center",
-    marginBottom: 10
+    marginBottom: 8,
+    letterSpacing: 1,
   },
-
   subtitle: {
     fontSize: 16,
-    color: "#fff",
+    color: "#94A3B8",
     textAlign: "center",
-    marginBottom: 25
+    marginBottom: 35,
   },
-
   label: {
-    fontWeight: "bold",
-    marginTop: 10,
-    color: "#fff"
+    fontWeight: "600",
+    marginTop: 15,
+    marginBottom: 5,
+    color: "#CBD5E1",
+    fontSize: 14,
   },
-
   input: {
     borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 5,
-    backgroundColor: "#fff"
+    borderColor: "#334155",
+    borderRadius: 12,
+    padding: 14,
+    backgroundColor: "#1E293B",
+    color: "#F8FAFC",
+    fontSize: 16,
   },
-
   boton: {
-    backgroundColor: "#007AFF",
-    padding: 15,
-    borderRadius: 8,
-    marginTop: 25,
-    alignItems: "center"
+    backgroundColor: "#2563EB",
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 35,
+    alignItems: "center",
+    shadowColor: "#2563EB",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
-
   texto: {
     color: "#fff",
-    fontWeight: "bold"
+    fontWeight: "bold",
+    fontSize: 16,
+    letterSpacing: 0.5,
   },
-
   link: {
     textAlign: "center",
-    marginTop: 20,
-    color: "#fff"
-  }
-
+    marginTop: 25,
+    color: "#60A5FA",
+    fontSize: 15,
+  },
 });
