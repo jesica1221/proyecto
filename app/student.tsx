@@ -11,12 +11,14 @@ import QRCode from 'react-native-qrcode-svg';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { useAuth } from '@/context/AuthContext';
+import Config from '@/constants/config';
+import AuthService from '@/services/auth';
+import useAuthStore from '@/store/useAuthStore';
 
 export default function StudentScreen() {
   const [remainingSeconds, setRemainingSeconds] = useState(0);
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, logout, token, getAuthHeaders, hasRole } = useAuthStore();
 
   const safeUser: any = user;
 
@@ -77,7 +79,11 @@ export default function StudentScreen() {
      ZONAS SEGÚN VEHÍCULO
   ========================= */
   useEffect(() => {
-    if (!safeUser) return;
+    if (!token || !safeUser || !AuthService.validateToken(token) || !hasRole('student')) {
+      logout();
+      router.replace('/login');
+      return;
+    }
 
     const tipo = safeUser.tipoVehiculo?.toLowerCase().trim();
 
@@ -90,7 +96,7 @@ export default function StudentScreen() {
     setZonaSeleccionada(null);
     setEspaciosDisponibles([]);
 
-  }, [safeUser]);
+  }, [safeUser, token, logout, router, hasRole]);
 
   /* =========================
      CARGAR ESPACIOS
@@ -98,10 +104,13 @@ export default function StudentScreen() {
   const cargarEspacios = async (zonaId: number) => {
     try {
       const response = await fetch(
-        'http://192.168.1.40/eficient-parking-lot/espacios.php',
+        `${Config.API_BASE_URL}/espacios.php`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders(),
+          },
           body: JSON.stringify({
             zona: zonaId,
             tipoVehiculo: safeUser.tipoVehiculo?.toLowerCase().trim(),
@@ -137,10 +146,13 @@ export default function StudentScreen() {
     const cargarReserva = async () => {
       try {
         const response = await fetch(
-          'http://192.168.1.40/eficient-parking-lot/reserva_activa.php',
+          `${Config.API_BASE_URL}/reserva_activa.php`,
           {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              ...getAuthHeaders(),
+            },
             body: JSON.stringify({ cedula: safeUser.cedula }),
           }
         );
@@ -157,14 +169,13 @@ export default function StudentScreen() {
         } else {
           setReservaActual(null);
         }
-
       } catch {
         setReservaActual(null);
       }
     };
 
     cargarReserva();
-  }, [safeUser]);
+  }, [safeUser, getAuthHeaders]);
 
   /* =========================
      RESERVAR
@@ -178,10 +189,13 @@ export default function StudentScreen() {
 
     try {
       const response = await fetch(
-        'http://192.168.1.40/eficient-parking-lot/reservar.php',
+        `${Config.API_BASE_URL}/reservar.php`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders(),
+          },
           body: JSON.stringify({
             idEspacio: espacioSeleccionado.id,
             cedula: safeUser.cedula,
@@ -217,10 +231,13 @@ export default function StudentScreen() {
   const cancelarReserva = async () => {
     try {
       const response = await fetch(
-        'http://192.168.1.40/eficient-parking-lot/cancelar.php',
+        `${Config.API_BASE_URL}/cancelar.php`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders(),
+          },
           body: JSON.stringify({ cedula: safeUser.cedula }),
         }
       );
@@ -263,9 +280,14 @@ export default function StudentScreen() {
           🆔 CC: {safeUser.cedula} | 🚗 Vehículo: {safeUser.tipoVehiculo?.toUpperCase()}
         </ThemedText>
 
-        <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
-          <ThemedText style={styles.logout}>Salir</ThemedText>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <TouchableOpacity onPress={() => router.push('/historial')} style={[styles.logoutBtn, { backgroundColor: '#2563EB' }]}>
+            <ThemedText style={styles.logout}>📋 Historial</ThemedText>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
+            <ThemedText style={styles.logout}>Salir</ThemedText>
+          </TouchableOpacity>
+        </View>
       </ThemedView>
 
       {/* SIN RESERVA */}
