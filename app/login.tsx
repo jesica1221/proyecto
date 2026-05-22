@@ -1,4 +1,6 @@
-import { useAuth } from "@/context/AuthContext";
+import Config from '@/constants/config';
+import AuthService from '@/services/auth';
+import useAuthStore from '@/store/useAuthStore';
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -16,76 +18,56 @@ import {
 ========================= */
 export default function Login() {
   const router = useRouter();
-  const { setUser } = useAuth();
-  const [isLoading, setIsLoading] = useState(false);
-  /* ===== Estados ===== */
+  const { login } = useAuthStore();
   const [cedula, setCedula] = useState("");
   const [password, setPassword] = useState("");
+  const [cargando, setCargando] = useState(false);
 
   /* =========================
      Función iniciar sesión
   ========================= */
   const iniciarSesion = async () => {
-    console.log("BOTON INICIAR SESIÓN PRESIONADO");
-
-    /* ===== Validación ===== */
     if (!cedula || !password) {
       Alert.alert("Error", "Ingresa cédula y contraseña");
       return;
     }
 
-    try {
-      console.log("ANTES DEL FETCH");
+    setCargando(true);
 
+    try {
       const response = await fetch(
-        "http://192.168.1.40/eficient-parking-lot/login.php",
+        `${Config.API_BASE_URL}/login.php`,
         {
           method: "POST",
           headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
+            "Content-Type": "application/json",
           },
-          body: `cedula=${cedula}&password=${password}`,
+          body: JSON.stringify({ cedula, password }),
         }
       );
 
-      console.log("DESPUES DEL FETCH");
-
       const data = await response.json();
 
-      /* ===== Debug ===== */
-      console.log("DATA COMPLETA:", data);
-      console.log("ZONA QUE LLEGA:", data?.zona || data?.user?.zona);
-
-      /* ===== Validación respuesta ===== */
       if (!data || !data.success) {
         Alert.alert("Error", data?.message || "Credenciales incorrectas");
         return;
       }
 
-      /* ===== Construcción del usuario ===== */
       const userData = data.user
-        ? {
-          ...data.user,
-          zona: data.user.zona,
-        }
+        ? { ...data.user }
         : {
+          id: `user-${Date.now()}`,
           nombre: data.nombre,
           cedula: data.cedula,
           rol: data.rol,
           placa: data.placa,
           tipoVehiculo: data.tipoVehiculo,
-          zona: data.zona,
         };
 
-      console.log("USUARIO FINAL:", userData);
+      const token = data.token || AuthService.createToken(userData);
+      login(userData, token);
 
-      /* ===== Guardar usuario ===== */
-      setUser(userData);
-
-      /* ===== Redirección por rol ===== */
-      console.log("ROL QUE LLEGA:", userData?.rol);
       const rol = (userData?.rol || "").toLowerCase().trim();
-      console.log("ROL:", rol);
 
       if (rol.includes("admin")) {
         router.replace("/admin");
@@ -99,6 +81,8 @@ export default function Login() {
     } catch (error) {
       console.log("ERROR EN EL FETCH", error);
       Alert.alert("Error", "No se pudo conectar al servidor");
+    } finally {
+      setCargando(false);
     }
   };
 
@@ -145,8 +129,21 @@ export default function Login() {
       />
 
       {/* ===== Botón Login ===== */}
-      <TouchableOpacity style={styles.boton} onPress={iniciarSesion}>
-        <Text style={styles.texto}>INICIAR SESIÓN</Text>
+      <TouchableOpacity
+        style={[styles.boton, cargando && styles.botonDesactivado]}
+        onPress={iniciarSesion}
+        disabled={cargando}
+      >
+        <Text style={styles.texto}>
+          {cargando ? "CARGANDO..." : "INICIAR SESIÓN"}
+        </Text>
+      </TouchableOpacity>
+
+      {/* ===== Link Recuperar Contraseña ===== */}
+      <TouchableOpacity onPress={() => router.push("/recuperar-contrasena")}>
+        <Text style={styles.link}>
+          ¿Olvidaste tu contraseña?
+        </Text>
       </TouchableOpacity>
 
       {/* ===== Link Registro ===== */}
@@ -215,6 +212,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 5,
+  },
+  botonDesactivado: {
+    backgroundColor: "#64748B",
+    shadowColor: "transparent",
   },
   texto: {
     color: "#fff",
