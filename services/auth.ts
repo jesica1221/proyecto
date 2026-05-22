@@ -1,6 +1,13 @@
 import { User } from '@/types/parking';
 import DBService from './database';
 
+export type AuthPayload = {
+  userId: string;
+  rol: string;
+  iat: number;
+  exp: number;
+};
+
 export type AuthResponse = {
   success: boolean;
   user?: User;
@@ -8,7 +15,42 @@ export type AuthResponse = {
   message: string;
 };
 
+const formatTokenPayload = (payload: AuthPayload) => encodeURIComponent(JSON.stringify(payload));
+const parseTokenPayload = (token: string): AuthPayload | null => {
+  try {
+    const parts = token.split('token.');
+    if (parts.length !== 2) return null;
+    return JSON.parse(decodeURIComponent(parts[1]));
+  } catch {
+    return null;
+  }
+};
+
 export const AuthService = {
+  createToken: (user: User): string => {
+    const payload: AuthPayload = {
+      userId: user.id,
+      rol: user.rol,
+      iat: Date.now(),
+      exp: Date.now() + 24 * 60 * 60 * 1000, // 24h de vigencia
+    };
+
+    return `token.${formatTokenPayload(payload)}`;
+  },
+
+  parseToken: (token: string): AuthPayload | null => {
+    return parseTokenPayload(token);
+  },
+
+  validateToken: (token: string): boolean => {
+    const payload = parseTokenPayload(token);
+    return !!payload && Date.now() < payload.exp;
+  },
+
+  getAuthHeaders: (token: string | null): Record<string, string> => {
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  },
+
   login: (cedula: string, nombre: string, placa: string, tipoVehiculo: string): AuthResponse => {
     try {
       const usuario = DBService.loginUser(cedula, nombre, placa, tipoVehiculo);
@@ -20,7 +62,7 @@ export const AuthService = {
         };
       }
 
-      const token = `token-${usuario.id}-${Date.now()}`;
+      const token = AuthService.createToken(usuario);
 
       return {
         success: true,
@@ -48,7 +90,7 @@ export const AuthService = {
         };
       }
 
-      const token = `token-${usuario.id}-${Date.now()}`;
+      const token = AuthService.createToken(usuario);
 
       return {
         success: true,
@@ -67,10 +109,6 @@ export const AuthService = {
 
   logout: () => {
     return { success: true, message: 'Logout exitoso' };
-  },
-
-  validateToken: (token: string): boolean => {
-    return token.startsWith('token-');
   },
 };
 
