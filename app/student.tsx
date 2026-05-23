@@ -1,11 +1,11 @@
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-  Alert,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View,
+    Alert,
+    ScrollView,
+    StyleSheet,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
@@ -105,6 +105,7 @@ export default function StudentScreen() {
     try {
       console.log('Cargando espacios para zona:', zonaId);
       console.log('Tipo vehículo:', safeUser.tipoVehiculo?.toLowerCase().trim());
+      console.log('Token:', token);
       
       const response = await fetch(
         `${Config.API_BASE_URL}/espacios.php`,
@@ -117,6 +118,7 @@ export default function StudentScreen() {
           body: JSON.stringify({
             zona: zonaId,
             tipoVehiculo: safeUser.tipoVehiculo?.toLowerCase().trim(),
+            token: token,
           }),
         }
       );
@@ -159,7 +161,10 @@ export default function StudentScreen() {
               'Content-Type': 'application/json',
               ...getAuthHeaders(),
             },
-            body: JSON.stringify({ cedula: safeUser.cedula }),
+            body: JSON.stringify({ 
+              cedula: safeUser.cedula,
+              token: token,
+            }),
           }
         );
 
@@ -181,7 +186,7 @@ export default function StudentScreen() {
     };
 
     cargarReserva();
-  }, [safeUser, getAuthHeaders]);
+  }, [safeUser, getAuthHeaders, token]);
 
   /* =========================
      RESERVAR
@@ -205,6 +210,7 @@ export default function StudentScreen() {
           body: JSON.stringify({
             idEspacio: espacioSeleccionado.id,
             cedula: safeUser.cedula,
+            token: token,
           }),
         }
       );
@@ -244,7 +250,10 @@ export default function StudentScreen() {
             'Content-Type': 'application/json',
             ...getAuthHeaders(),
           },
-          body: JSON.stringify({ cedula: safeUser.cedula }),
+          body: JSON.stringify({ 
+            cedula: safeUser.cedula,
+            token: token,
+          }),
         }
       );
 
@@ -286,12 +295,12 @@ export default function StudentScreen() {
           🆔 CC: {safeUser.cedula} | 🚗 Vehículo: {safeUser.tipoVehiculo?.toUpperCase()}
         </ThemedText>
 
-        <View style={{ flexDirection: 'row', gap: 10 }}>
-          <TouchableOpacity onPress={() => router.push('/historial')} style={[styles.logoutBtn, { backgroundColor: '#2563EB' }]}>
-            <ThemedText style={styles.logout}>📋 Historial</ThemedText>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity onPress={() => router.push('/historial')} style={styles.headerButton}>
+            <ThemedText style={styles.headerButtonText}>📋 Historial</ThemedText>
           </TouchableOpacity>
-          <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
-            <ThemedText style={styles.logout}>Salir</ThemedText>
+          <TouchableOpacity onPress={handleLogout} style={styles.headerButton}>
+            <ThemedText style={styles.headerButtonText}>Salir</ThemedText>
           </TouchableOpacity>
         </View>
       </ThemedView>
@@ -421,16 +430,24 @@ const styles = StyleSheet.create({
     marginTop: 4
   },
 
-  logoutBtn: {
-    position: 'absolute',
-    right: 20,
-    top: 40,
-    backgroundColor: '#334155',
-    padding: 10,
-    borderRadius: 8
+  headerButtons: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 15,
   },
 
-  logout: { color: '#fff' },
+  headerButton: {
+    flex: 1,
+    backgroundColor: '#2563EB',
+    padding: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+
+  headerButtonText: { 
+    color: '#fff',
+    fontWeight: '600',
+  },
 
   sectionTitle: {
     color: '#fff',
