@@ -296,9 +296,6 @@ export default function StudentScreen() {
         </ThemedText>
 
         <View style={styles.headerButtons}>
-          <TouchableOpacity onPress={() => router.push('/historial')} style={styles.headerButton}>
-            <ThemedText style={styles.headerButtonText}>📋 Historial</ThemedText>
-          </TouchableOpacity>
           <TouchableOpacity onPress={handleLogout} style={styles.headerButton}>
             <ThemedText style={styles.headerButtonText}>Salir</ThemedText>
           </TouchableOpacity>
