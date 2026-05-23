@@ -25,14 +25,14 @@ export default function RecuperarContrasena() {
     }
 
     try {
+      const formData = new FormData();
+      formData.append('cedula', cedula);
+
       const response = await fetch(
         `${Config.API_BASE_URL}/verificar_usuario.php`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ cedula }),
+          body: formData,
         }
       );
 
@@ -60,17 +60,15 @@ export default function RecuperarContrasena() {
     }
 
     try {
+      const formData = new FormData();
+      formData.append('cedula', cedula);
+      formData.append('nuevaContrasena', nuevaContrasena);
+
       const response = await fetch(
         `${Config.API_BASE_URL}/cambiar_contrasena.php`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            cedula,
-            nuevaContrasena,
-          }),
+          body: formData,
         }
       );
 
