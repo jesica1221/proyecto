@@ -169,18 +169,22 @@ export default function StudentScreen() {
         );
 
         const data = await response.json();
+        console.log('Reserva activa:', data);
 
-        if (data.success) {
+        if (data.success && data.reserva) {
           const reserva = data.reserva;
 
           setReservaActual({
             numero: reserva.numero,
+            zona: reserva.zona,
+            horaVencimiento: reserva.horaVencimiento,
             qrCode: `USER-${safeUser.nombre}-${safeUser.cedula}-ESPACIO-${reserva.numero}`,
           });
         } else {
           setReservaActual(null);
         }
-      } catch {
+      } catch (error) {
+        console.log('Error cargando reserva:', error);
         setReservaActual(null);
       }
     };

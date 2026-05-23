@@ -79,7 +79,7 @@ export default function AdminScreen() {
     try {
 
       const response = await fetch(
-        `${Config.API_BASE_URL}/admin_espacios.php`,
+        `${Config.API_BASE_URL}/admin_espacios.php?token=${encodeURIComponent(token || '')}`,
         {
           method: 'GET',
           headers: {
@@ -90,6 +90,7 @@ export default function AdminScreen() {
       );
 
       const data = await response.json();
+      console.log('Admin data:', data);
 
       if (data?.success) {
 
@@ -113,7 +114,7 @@ export default function AdminScreen() {
 
             zonasMap[e.zonaId] = {
               id: e.zonaId,
-              tipo: e.tipoVehiculo || "carro",
+              tipo: e.tipoVehiculo || e.tipoZona || "carro",
             };
 
           }
