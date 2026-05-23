@@ -337,36 +337,6 @@ export default function SecurityScreen() {
     }
   };
 
-  const liberarEspacio = async (espacio: any) => {
-    try {
-      const response = await fetch(
-        `${Config.API_BASE_URL}/liberar.php`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...getAuthHeaders(),
-          },
-          body: JSON.stringify({
-            espacioId: espacio.id,
-            token: token,
-          }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (data.success) {
-        Alert.alert("✅ Espacio liberado");
-        cargarTodo();
-      } else {
-        Alert.alert("Error", data.message || "No se pudo liberar");
-      }
-    } catch (error) {
-      Alert.alert("Error servidor");
-    }
-  };
-
   const handleEspacioClick = (espacio: any) => {
     if (espacio.estado === "libre") {
       setSelectedEspacio(espacio);
@@ -382,10 +352,7 @@ export default function SecurityScreen() {
     Alert.alert(
       espacio.estado === "ocupado" ? "Ocupado" : "Por vencer",
       `Usuario: ${espacio.nombre}\nCédula: ${espacio.cedula}`,
-      [
-        { text: "Cancelar", style: "cancel" },
-        { text: "Liberar espacio", style: "destructive", onPress: () => liberarEspacio(espacio) },
-      ]
+      [{ text: "OK" }]
     );
   };
 
