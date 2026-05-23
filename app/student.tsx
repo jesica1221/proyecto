@@ -103,6 +103,9 @@ export default function StudentScreen() {
   ========================= */
   const cargarEspacios = async (zonaId: number) => {
     try {
+      console.log('Cargando espacios para zona:', zonaId);
+      console.log('Tipo vehículo:', safeUser.tipoVehiculo?.toLowerCase().trim());
+      
       const response = await fetch(
         `${Config.API_BASE_URL}/espacios.php`,
         {
@@ -119,14 +122,17 @@ export default function StudentScreen() {
       );
 
       const data = await response.json();
+      console.log('Respuesta espacios:', data);
 
       if (data.success) {
         setEspaciosDisponibles(data.espacios);
       } else {
         setEspaciosDisponibles([]);
+        Alert.alert('Error', data.message || 'No hay espacios disponibles');
       }
 
     } catch (error) {
+      console.log('Error cargando espacios:', error);
       Alert.alert('Error cargando espacios');
     }
   };
