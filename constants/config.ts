@@ -1,5 +1,5 @@
 export const Config = {
-  API_BASE_URL: 'http://192.168.80.41/eficient-parking-lot',
+  API_BASE_URL: 'https://proyecto-backen-production.up.railway.app',
 };
 
 export default Config;
