@@ -1,5 +1,6 @@
 import { ThemedText } from '@/components/themed-text';
 import Config from '@/constants/config';
+import useAuthStore from '@/store/useAuthStore';
 import { useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
@@ -13,6 +14,7 @@ import {
 export default function ZonaAdminScreen() {
 
     const { zonaId, zonaNombre, zonaColor } = useLocalSearchParams();
+    const { token, getAuthHeaders } = useAuthStore();
 
     const [espacios, setEspacios] = useState<any[]>([]);
     const [selectedEspacio, setSelectedEspacio] = useState<any>(null);
@@ -21,12 +23,22 @@ export default function ZonaAdminScreen() {
     const cargarZona = async () => {
 
         try {
+            console.log('Cargando zona:', zonaId);
+            console.log('Token:', token);
 
             const response = await fetch(
-                `${Config.API_BASE_URL}/admin_espacios.php`
+                `${Config.API_BASE_URL}/admin_espacios.php?token=${encodeURIComponent(token || '')}`,
+                {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...getAuthHeaders(),
+                    },
+                }
             );
 
             const data = await response.json();
+            console.log('Zona data:', data);
 
             const todos = [
                 ...(data.libres || []),
