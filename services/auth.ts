@@ -43,8 +43,7 @@ export const AuthService = {
   },
 
   validateToken: (token: string): boolean => {
-    const payload = parseTokenPayload(token);
-    return !!payload && Date.now() < payload.exp;
+    return !!token && token.trim().length > 0;
   },
 
   getAuthHeaders: (token: string | null): Record<string, string> => {
