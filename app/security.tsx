@@ -8,14 +8,14 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 
 import {
-  Alert,
-  FlatList,
-  Modal,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  View
+    Alert,
+    FlatList,
+    Modal,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    TouchableWithoutFeedback,
+    View
 } from 'react-native';
 
 export default function SecurityScreen() {
@@ -28,6 +28,17 @@ export default function SecurityScreen() {
   const [loading, setLoading] = useState(true);
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
+
+  const getNombreZona = (id: number | string) => {
+    switch (Number(id)) {
+      case 1: return "🏢 Administrativa";
+      case 2: return "📚 Biblioteca";
+      case 3: return "🎭 Auditorio";
+      case 4: return "🍔 Cafetería";
+      case 5: return "🧪 Laboratorios";
+      default: return `Zona ${id}`;
+    }
+  };
 
   const [zonas, setZonas] = useState<any[]>([]);
   const [todosEspacios, setTodosEspacios] = useState<any[]>([]);
@@ -179,7 +190,7 @@ export default function SecurityScreen() {
     }
   };
 
-  const handleVerifyQRWithData = (dataQR: string) => {
+  const handleVerifyQRWithData = async (dataQR: string) => {
     const parts = dataQR.split('-');
 
     if (parts[0] !== 'USER' || parts[3] !== 'ESPACIO') {
@@ -188,7 +199,51 @@ export default function SecurityScreen() {
     }
 
     const nombre = parts[1];
-    Alert.alert('✅ Acceso permitido', `Usuario: ${nombre}`);
+    const cedula = parts[2];
+    const numeroEspacio = parts[4];
+
+    try {
+      const response = await fetch(
+        `${Config.API_BASE_URL}/buscar_placa_activa.php`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...getAuthHeaders(),
+          },
+          body: JSON.stringify({
+            cedula: cedula,
+            token: token,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (data.tieneParqueadero && data.usuario) {
+        const usuario = data.usuario;
+        const nombreZona = getNombreZona(usuario.zonaId || usuario.zona);
+
+        Alert.alert(
+          "✅ Acceso permitido",
+          `👤 Nombre: ${usuario.nombre || nombre}\n🆔 Cédula: ${usuario.cedula || cedula}\n📍 Zona: ${nombreZona}\n🅿️ Espacio: #${usuario.numero || numeroEspacio}`,
+          [{ text: "OK" }]
+        );
+      } else {
+        Alert.alert(
+          "✅ Código QR válido",
+          `👤 Nombre: ${nombre}\n🆔 Cédula: ${cedula}\n🅿️ Espacio: #${numeroEspacio}`,
+          [{ text: "OK" }]
+        );
+      }
+    } catch (error) {
+      console.log(error);
+      Alert.alert(
+        "✅ Código QR válido",
+        `👤 Nombre: ${nombre}\n🆔 Cédula: ${cedula}\n🅿️ Espacio: #${numeroEspacio}`,
+        [{ text: "OK" }]
+      );
+    }
   };
 
   const cargarTodo = async () => {
