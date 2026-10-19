@@ -38,8 +38,8 @@ export default function Registro() {
     }
 
     if (rol === "admin" || rol === "seguridad") {
-      if (claveAdmin !== "admin123") {
-        Alert.alert("Error", "Clave de administrador incorrecta");
+      if (!claveAdmin) {
+        Alert.alert("Error", "Ingresa la clave de registro autorizada");
         return;
       }
     }
@@ -50,21 +50,21 @@ export default function Registro() {
     }
 
     try {
-      const formData = new FormData();
-      formData.append('nombre', nombre.trim());
-      formData.append('cedula', cedula.trim());
-      formData.append('clave', password);
-      formData.append('rol', rol.toLowerCase());
-      formData.append('placa', placa.toUpperCase().trim());
-      formData.append('tipoVehiculo', tipoVehiculo.toLowerCase());
-      formData.append('aceptaTerminos', aceptaTerminos ? '1' : '0');
-      formData.append('claveAdmin', claveAdmin);
-
       const response = await fetch(
         `${Config.API_BASE_URL}/registro.php`,
         {
           method: "POST",
-          body: formData,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            nombre: nombre.trim(),
+            cedula: cedula.trim(),
+            clave: password,
+            rol: rol.toLowerCase(),
+            placa: placa.toUpperCase().trim(),
+            tipoVehiculo: tipoVehiculo.toLowerCase(),
+            aceptaTerminos: aceptaTerminos ? '1' : '0',
+            claveAdmin,
+          }),
         }
       );
 
@@ -353,4 +353,3 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
 });
-

@@ -1,0 +1,23 @@
+[Unit]
+Description=Eficient Parking API
+After=network.target
+
+[Service]
+Type=simple
+User=parking
+Group=parking
+WorkingDirectory=/opt/efficient-parking/backend
+EnvironmentFile=/etc/efficient-parking.env
+Environment=NODE_ENV=production
+Environment=SQLITE_PATH=/var/lib/efficient-parking/parking.sqlite
+ExecStart=/usr/bin/node server.cjs
+Restart=on-failure
+RestartSec=5
+StateDirectory=efficient-parking
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/efficient-parking
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

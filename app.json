@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "eficientparkinglot",
+    "name": "Eficient Parking",
     "slug": "eficientparkinglot",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -12,6 +12,7 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.jesica.eficientparkinglot",
       "usesCleartextTraffic": true,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",

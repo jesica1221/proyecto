@@ -25,7 +25,7 @@ interface HistorialItem {
 
 export default function Historial() {
   const router = useRouter();
-  const { user } = useAuthStore();
+  const { user, getAuthHeaders } = useAuthStore();
   const [historial, setHistorial] = useState<HistorialItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -37,6 +37,7 @@ export default function Historial() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            ...getAuthHeaders(),
           },
           body: JSON.stringify({ cedula: user?.cedula }),
         }
@@ -55,7 +56,7 @@ export default function Historial() {
 
   useEffect(() => {
     cargarHistorial();
-  }, [user]);
+  }, [user, getAuthHeaders]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);

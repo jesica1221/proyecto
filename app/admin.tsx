@@ -220,6 +220,15 @@ export default function AdminScreen() {
           </View>
 
           <TouchableOpacity
+            style={[styles.logoutButton, { marginRight: 10 }]}
+            onPress={() => router.push('/dashboard')}
+          >
+            <ThemedText style={styles.logoutButtonText}>
+              Dashboard en vivo
+            </ThemedText>
+          </TouchableOpacity>
+
+          <TouchableOpacity
             style={styles.logoutButton}
             onPress={handleLogout}
           >

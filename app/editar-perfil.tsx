@@ -16,7 +16,7 @@ import Config from "@/constants/config";
 
 export default function EditarPerfil() {
   const router = useRouter();
-  const { user, setUser } = useAuthStore();
+  const { user, setUser, getAuthHeaders } = useAuthStore();
   const [nombre, setNombre] = useState(user?.nombre || "");
   const [placa, setPlaca] = useState(user?.placa || "");
   const [loading, setLoading] = useState(false);
@@ -36,6 +36,7 @@ export default function EditarPerfil() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            ...getAuthHeaders(),
           },
           body: JSON.stringify({
             cedula: user?.cedula,

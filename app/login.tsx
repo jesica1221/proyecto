@@ -35,15 +35,12 @@ export default function Login() {
     setCargando(true);
 
     try {
-      const formData = new FormData();
-      formData.append('cedula', cedula);
-      formData.append('password', password);
-
       const response = await fetch(
         `${Config.API_BASE_URL}/login.php`,
         {
           method: "POST",
-          body: formData,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cedula, password }),
         }
       );
 
