@@ -1,7 +1,9 @@
 import { User, UserRole } from '@/types/parking';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
-import { createJSONStorage, persist } from 'zustand/middleware';
+const middleware = require('zustand/middleware') as typeof import('zustand/middleware');
+
+const { createJSONStorage, persist } = middleware;
 
 const normalizeRole = (rol?: string) => {
   const normalized = rol?.toLowerCase().trim() ?? '';
