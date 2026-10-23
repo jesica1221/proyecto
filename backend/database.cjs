@@ -15,7 +15,7 @@ const zoneSeed = [
 function openDatabase(databasePath = process.env.SQLITE_PATH || defaultDatabasePath) {
   fs.mkdirSync(path.dirname(databasePath), { recursive: true });
   const db = new Database(databasePath);
-  db.pragma('journal_mode = WAL');
+  db.pragma(`journal_mode = ${process.env.SQLITE_JOURNAL_MODE === 'DELETE' ? 'DELETE' : 'WAL'}`);
   db.pragma('foreign_keys = ON');
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (

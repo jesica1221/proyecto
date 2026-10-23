@@ -2,7 +2,6 @@ import Config from '@/constants/config';
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
-  Alert,
   Image,
   Linking,
   ScrollView,
@@ -24,31 +23,37 @@ export default function Registro() {
   const [tipoVehiculo, setTipoVehiculo] = useState("carro");
   const [aceptaTerminos, setAceptaTerminos] = useState(false);
   const [claveAdmin, setClaveAdmin] = useState("");
+  const [mensaje, setMensaje] = useState("");
+  const [error, setError] = useState("");
+  const [guardando, setGuardando] = useState(false);
 
   const registrar = async () => {
+    setError("");
+    setMensaje("");
+
     if (!nombre || !cedula || !password) {
-      Alert.alert("Error", "Debes completar los datos");
+      setError("Debes completar nombre, cédula y contraseña.");
       return;
     }
 
-    // VALIDAR SEGÚN ROL
     if (rol === "estudiante" && !placa) {
-      Alert.alert("Error", "Debes ingresar la placa");
+      setError("Debes ingresar la placa del vehículo.");
       return;
     }
 
     if (rol === "admin" || rol === "seguridad") {
       if (!claveAdmin) {
-        Alert.alert("Error", "Ingresa la clave de registro autorizada");
+        setError("Ingresa la clave de registro autorizada.");
         return;
       }
     }
 
     if (!aceptaTerminos) {
-      Alert.alert("Error", "Debes aceptar los términos y condiciones");
+      setError("Debes aceptar los términos y condiciones.");
       return;
     }
 
+    setGuardando(true);
     try {
       const response = await fetch(
         `${Config.API_BASE_URL}/registro.php`,
@@ -71,21 +76,14 @@ export default function Registro() {
       const result = await response.json();
 
       if (result.success) {
-        Alert.alert("✅ Registro exitoso");
-
-        setNombre("");
-        setCedula("");
-        setPassword("");
-        setPlaca("");
-        setAceptaTerminos(false);
-
-        router.replace("/login");
+        router.replace({ pathname: "/login", params: { registered: "1" } });
       } else {
-        Alert.alert("Error", result.message || "Ocurrió un error");
+        setError(result.message || "No fue posible crear la cuenta.");
       }
-
-    } catch (error) {
-      Alert.alert("Error", "No se pudo conectar al servidor");
+    } catch {
+      setError("No se pudo conectar al servidor. Revisa que la API esté iniciada e inténtalo de nuevo.");
+    } finally {
+      setGuardando(false);
     }
   };
 
@@ -210,31 +208,36 @@ export default function Registro() {
       )}
 
       <TouchableOpacity
-        style={[styles.boton, { marginTop: 25 }]}
+        style={[styles.terminos, { backgroundColor: "transparent" }]}
         onPress={() => setAceptaTerminos(!aceptaTerminos)}
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: aceptaTerminos }}
       >
         <Text style={{ color: "#94A3B8" }}>
-          {aceptaTerminos ? "☑ " : "☐ "}
-
-          <Text
-            style={{ textDecorationLine: "underline", color: "#94A3B8" }}
-            onPress={() =>
-              Linking.openURL(
-                "https://www.minjusticia.gov.co/ministerio/Documents/SIG/_pol%C3%ADtica%20de%20tratamiento%20y%20protecci%C3%B3n%20datos%20personales.pdf"
-              )
-            }
-          >
-            Acepto términos y condiciones
-          </Text>
+          {aceptaTerminos ? "☑ " : "☐ "}Acepto términos y condiciones
         </Text>
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={styles.botonGuardar}
+        onPress={() =>
+          Linking.openURL(
+            "https://www.minjusticia.gov.co/ministerio/Documents/SIG/_pol%C3%ADtica%20de%20tratamiento%20y%20protecci%C3%B3n%20datos%20personales.pdf"
+          )
+        }
+      >
+        <Text style={[styles.link, { marginTop: 12 }]}>Leer política de tratamiento de datos</Text>
+      </TouchableOpacity>
+
+      {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
+      {mensaje ? <Text accessibilityRole="alert" style={styles.success}>{mensaje}</Text> : null}
+
+      <TouchableOpacity
+        style={[styles.botonGuardar, guardando && { opacity: 0.7 }]}
         onPress={registrar}
+        disabled={guardando}
       >
         <Text style={styles.textoGuardar}>
-          GUARDAR
+          {guardando ? "CREANDO CUENTA..." : "GUARDAR"}
         </Text>
       </TouchableOpacity>
 
@@ -339,12 +342,27 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   terminos: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 1,
     borderColor: "#334155",
     backgroundColor: "#1E293B",
     padding: 14,
     borderRadius: 12,
     marginTop: 25,
+  },
+  error: {
+    color: "#FCA5A5",
+    textAlign: "center",
+    marginTop: 14,
+    fontSize: 14,
+  },
+  success: {
+    color: "#6EE7B7",
+    textAlign: "center",
+    marginTop: 14,
+    fontSize: 14,
   },
   link: {
     textAlign: "center",

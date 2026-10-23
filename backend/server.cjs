@@ -8,7 +8,7 @@ const jwt = require('jsonwebtoken');
 const { openDatabase } = require('./database.cjs');
 
 const appPort = Number(process.env.PORT || 4000);
-const listenHost = process.env.NODE_ENV === 'production' ? '127.0.0.1' : '0.0.0.0';
+const listenHost = process.env.HOST || (process.env.NODE_ENV === 'production' ? '127.0.0.1' : '0.0.0.0');
 const jwtSecret = process.env.JWT_SECRET || (process.env.NODE_ENV === 'production' ? '' : 'local-only-change-this-secret');
 
 function createApp(db = openDatabase()) {
@@ -105,7 +105,7 @@ function createApp(db = openDatabase()) {
   });
 
   app.post('/eficient-parking-lot/registro.php', (req, res) => {
-    const { nombre, cedula, clave, rol, placa, tipoVehiculo, claveAdmin } = req.body;
+    const { nombre, cedula, clave, rol, placa, tipoVehiculo, claveAdmin, aceptaTerminos } = req.body;
     const normalizedRole = normalizeRole(rol);
     const allowedRole = normalizedRole === 'student'
       ? 'student'
@@ -115,6 +115,9 @@ function createApp(db = openDatabase()) {
     }
     if (normalizedRole === 'student' && !String(placa || '').trim()) {
       return sendFailure(res, 400, 'La placa es obligatoria para una cuenta de estudiante.');
+    }
+    if (aceptaTerminos !== true && aceptaTerminos !== '1') {
+      return sendFailure(res, 400, 'Debes aceptar los términos y condiciones.');
     }
     if (!allowedRole) return sendFailure(res, 400, 'El tipo de cuenta no es válido.');
     const expectedKey = allowedRole === 'admin'
@@ -440,6 +443,18 @@ function createApp(db = openDatabase()) {
       zonas: zones,
       actividadPorHora: hourly,
       vehiculosUltimos7Dias: vehicleMix,
+    });
+  });
+
+  const webRoot = process.env.WEB_ROOT || path.resolve(__dirname, '..', 'dist');
+  app.use(express.static(webRoot, { index: false }));
+  app.get('*', (req, res, next) => {
+    const routePath = req.path === '/' ? '/index' : req.path.replace(/\/+$/, '');
+    const htmlPath = path.resolve(webRoot, `.${routePath}.html`);
+    if (!htmlPath.startsWith(`${path.resolve(webRoot)}${path.sep}`)) return next();
+    return res.sendFile(htmlPath, (error) => {
+      if (error?.code === 'ENOENT') return next();
+      if (error) return next(error);
     });
   });
 

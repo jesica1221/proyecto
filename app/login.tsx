@@ -1,10 +1,9 @@
 import Config from '@/constants/config';
 import AuthService from '@/services/auth';
 import useAuthStore from '@/store/useAuthStore';
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
-  Alert,
   Image,
   StyleSheet,
   Text,
@@ -18,21 +17,24 @@ import {
 ========================= */
 export default function Login() {
   const router = useRouter();
+  const { registered } = useLocalSearchParams<{ registered?: string }>();
   const { login } = useAuthStore();
   const [cedula, setCedula] = useState("");
   const [password, setPassword] = useState("");
   const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState("");
 
   /* =========================
      Función iniciar sesión
   ========================= */
   const iniciarSesion = async () => {
     if (!cedula || !password) {
-      Alert.alert("Error", "Ingresa cédula y contraseña");
+      setError("Ingresa tu cédula y contraseña.");
       return;
     }
 
     setCargando(true);
+    setError("");
 
     try {
       const response = await fetch(
@@ -46,8 +48,8 @@ export default function Login() {
 
       const data = await response.json();
 
-      if (!data || !data.success) {
-        Alert.alert("Error", data?.message || "Credenciales incorrectas");
+      if (!response.ok || !data?.success) {
+        setError(data?.message || "Cédula o contraseña incorrectas.");
         return;
       }
 
@@ -74,11 +76,11 @@ export default function Login() {
       } else if (rol.includes("security") || rol === "seguridad") {
         router.replace("/security");
       } else {
-        Alert.alert("Error", "Rol no reconocido: " + rol);
+        setError("El rol de esta cuenta no está habilitado para iniciar sesión.");
       }
     } catch (error) {
       console.log("ERROR EN EL FETCH", error);
-      Alert.alert("Error", "No se pudo conectar al servidor");
+      setError("No se pudo conectar al servidor. Revisa que la API esté iniciada e inténtalo de nuevo.");
     } finally {
       setCargando(false);
     }
@@ -136,6 +138,13 @@ export default function Login() {
           {cargando ? "CARGANDO..." : "INICIAR SESIÓN"}
         </Text>
       </TouchableOpacity>
+
+      {registered === "1" ? (
+        <Text accessibilityRole="alert" style={styles.success}>
+          Cuenta creada correctamente. Inicia sesión con tu cédula y contraseña.
+        </Text>
+      ) : null}
+      {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
 
       {/* ===== Link Recuperar Contraseña ===== */}
       <TouchableOpacity onPress={() => router.push("/recuperar-contrasena")}>
@@ -226,5 +235,17 @@ const styles = StyleSheet.create({
     marginTop: 25,
     color: "#60A5FA",
     fontSize: 15,
+  },
+  error: {
+    color: "#FCA5A5",
+    textAlign: "center",
+    marginTop: 14,
+    fontSize: 14,
+  },
+  success: {
+    color: "#6EE7B7",
+    textAlign: "center",
+    marginTop: 14,
+    fontSize: 14,
   },
 });

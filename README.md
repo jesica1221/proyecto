@@ -2,6 +2,10 @@
 
 Prototipo de gestión de parqueaderos para la Universidad de Cundinamarca. La aplicación Expo funciona en Android y navegador; ambos clientes consumen la misma API y la misma base de datos SQLite.
 
+## Guía de estudio
+
+Consulta la [guía completa en Markdown](./GUIA-DE-ESTUDIO.md) o descarga la [versión Word](./GUIA-DE-ESTUDIO.docx) para estudiar la arquitectura, los archivos, los flujos, la API, las pruebas y el estado real del despliegue.
+
 ## Funcionalidades implementadas
 
 1. Registro de estudiantes y autenticación con contraseña cifrada.
@@ -52,16 +56,19 @@ npm run lint
 npx expo export --platform web
 ```
 
-## Despliegue en AWS Lightsail
+## Despliegue gratuito en Azure
 
-El despliegue recomendado para esta entrega es una instancia Ubuntu de AWS Lightsail: aloja la API Node, el archivo de base de datos persistente y la web estática exportada. No se usa Vercel ni Supabase. El costo depende de región y tamaño de instancia; revisa la tarifa mostrada en tu cuenta antes de crearla. Para publicar se requiere una cuenta AWS, una instancia con IP estática y un dominio que controles para habilitar HTTPS.
+El prototipo se puede publicar en un único Azure App Service Linux con plan **F1 Free** en la región **Mexico Central**, la región cercana permitida por la suscripción Azure for Students. La misma aplicación sirve la web estática de Expo, la API y una base SQLite en `/home/data`, por lo que móvil y web usan los mismos datos. La dirección pública usa el dominio gratuito `azurewebsites.net`; no hace falta comprar un dominio.
 
-1. Crea una instancia Ubuntu de Lightsail, asigna IP estática y apunta un dominio a esa dirección. Abre únicamente SSH y HTTP/HTTPS en el firewall.
-2. Instala Node.js LTS y Nginx en la instancia. Copia el directorio `backend` y ejecuta `npm ci --omit=dev` dentro de él; para servir el frontend, copia también `dist` a Nginx. Así la instancia solo instala dependencias de la API, no el toolchain móvil/web. Los ejemplos de servicio y proxy están en `deploy/efficient-parking.service.example` y `deploy/nginx.conf.example`.
-3. Crea un archivo de entorno fuera del repositorio, con `NODE_ENV=production`, `PORT=4000`, `SQLITE_PATH=/var/lib/efficient-parking/parking.sqlite`, un `JWT_SECRET` aleatorio, `BOOTSTRAP_ADMIN_ID` y una contraseña de administrador de al menos 12 caracteres. Configura permisos restringidos para ese archivo.
-4. Ejecuta `npm run api` como servicio administrado por `systemd`; usa Nginx como proxy hacia `127.0.0.1:4000` para `/api/` y `/eficient-parking-lot/`, y sirve la carpeta web exportada en el dominio. Habilita TLS con Certbot.
-5. En la máquina de compilación, define `EXPO_PUBLIC_API_URL=https://TU-DOMINIO/eficient-parking-lot` antes de `npx expo export --platform web`; publica el contenido de `dist` en el directorio web de Nginx.
-6. Configura la misma `EXPO_PUBLIC_API_URL` en el entorno de compilación móvil antes de generar el APK. Con Expo EAS autenticado, ejecuta `npx eas-cli build --platform android --profile preview`.
-7. Prueba registro/login, reserva, cancelación, validación QR, operación de seguridad y dashboard sobre el dominio HTTPS. Configura copias de seguridad de `/var/lib/efficient-parking` y snapshots de Lightsail.
+El plan F1 no tiene costo de cómputo, pero está limitado a 60 minutos de CPU por día y 1 GB de almacenamiento compartido, no ofrece SLA y Microsoft lo recomienda para pruebas y aprendizaje, no para producción. Si se exceden las cuotas, el prototipo puede dejar de responder; este despliegue no crea recursos de pago adicionales ni añade alertas o servicios facturables. Consulta los [límites y condiciones actuales del plan gratuito](https://azure.microsoft.com/pricing/details/app-service/linux/).
 
-El despliegue no se puede completar desde el repositorio sin acceso a una cuenta AWS, dominio y cuenta Expo EAS. No incluyas credenciales en el chat ni las subas al repositorio. SQLite en una sola instancia es apropiada para un prototipo; para alta disponibilidad o concurrencia elevada se debe migrar a PostgreSQL administrado y planificar backups/restauración.
+Requisitos: Azure CLI, Node.js 20 o superior, dependencias instaladas en la raíz, y una suscripción Azure activa. Desde PowerShell en la raíz del repositorio:
+
+```powershell
+az login
+.\deploy\azure-free.ps1
+```
+
+El script crea un identificador numérico y una contraseña de administrador nuevos para la demo, crea un grupo de recursos y un plan F1, compila la web para consumir la API del mismo dominio, despliega API y web, y comprueba `/health`, `/login` y la autenticación administrativa. La contraseña se usa solo para inicializar la cuenta y se elimina de los ajustes de Azure al terminar; la cuenta permanece en la base como hash. Las credenciales se muestran una sola vez al completar el script: guárdalas. No se guardan en el repositorio. El script no copia `backend/data` ni la base local al paquete de despliegue.
+
+La capa gratuita está pensada para prototipos y desarrollo: una sola instancia, cuotas compartidas, sin SLA ni escalado. La base SQLite vive en el almacenamiento persistente de App Service; por el límite de instancia y almacenamiento, no es una arquitectura para alta concurrencia. No guardes información personal real en esta demostración. Para APK, compila por separado con EAS usando la URL pública generada y una cuenta Expo; el despliegue de Azure no crea ni firma un APK.

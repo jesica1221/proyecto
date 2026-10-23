@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: efficient-parking
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm ci --prefix backend && EXPO_PUBLIC_API_URL=/eficient-parking-lot npx expo export --platform web
+    startCommand: node backend/server.cjs
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: WEB_ROOT
+        value: dist
+      - key: SQLITE_PATH
+        value: /tmp/parking.sqlite
+      - key: SQLITE_JOURNAL_MODE
+        value: DELETE
+      - key: DEMO_DATA
+        value: "true"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: BOOTSTRAP_ADMIN_ID
+        sync: false
+      - key: BOOTSTRAP_ADMIN_PASSWORD
+        sync: false
+      - key: BOOTSTRAP_ADMIN_NAME
+        value: Administradora
