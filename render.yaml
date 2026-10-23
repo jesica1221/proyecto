@@ -3,7 +3,7 @@ services:
     name: efficient-parking
     runtime: node
     plan: free
-    buildCommand: npm ci && npm ci --prefix backend && EXPO_PUBLIC_API_URL=/eficient-parking-lot npx expo export --platform web
+    buildCommand: npm ci --prefix backend
     startCommand: node backend/server.cjs
     healthCheckPath: /health
     envVars:
