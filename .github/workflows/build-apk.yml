@@ -16,7 +16,7 @@ jobs:
   apk:
     runs-on: ubuntu-latest
     env:
-      EXPO_PUBLIC_API_URL: https://efficient-parking.onrender.com/eficient-parking-lot
+      EXPO_PUBLIC_API_URL: https://efficient-parking-3126533e.azurewebsites.net/eficient-parking-lot
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

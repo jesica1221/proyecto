@@ -18,9 +18,11 @@ $bootstrapSettingsConfigured = $false
 
 function Invoke-Az {
   param([string[]]$Arguments)
-  & $script:AzCommand @Arguments
-  if ($LASTEXITCODE -ne 0) {
-    throw "Azure CLI failed while running 'az $($Arguments[0])'. Review the error above."
+  $previousPreference = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  & $script:AzCommand @Arguments 2>&1 | ForEach-Object { "$_" } | Write-Host
+  $ErrorActionPreference = $previousPreference
+  if ($LASTEXITCODE -ne 0) {    throw "Azure CLI failed while running 'az $($Arguments[0])'. Review the error above."
   }
 }
 
@@ -89,10 +91,28 @@ try {
   Copy-Item (Join-Path $repoRoot 'backend\package.json') (Join-Path $stage 'package.json')
   Copy-Item (Join-Path $repoRoot 'backend\package-lock.json') (Join-Path $stage 'package-lock.json')
   Copy-Item (Join-Path $repoRoot 'dist\*') (Join-Path $stage 'dist') -Recurse
-  Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zipPath
+  Add-Type -AssemblyName System.IO.Compression
+  Add-Type -AssemblyName System.IO.Compression.FileSystem
+  if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
+  $zipStream = [IO.File]::Open($zipPath, [IO.FileMode]::Create)
+  $archive = New-Object IO.Compression.ZipArchive($zipStream, [IO.Compression.ZipArchiveMode]::Create)
+  try {
+    $stageFull = (Resolve-Path $stage).Path.TrimEnd('\')
+    Get-ChildItem $stageFull -Recurse -File | ForEach-Object {
+      $entryName = $_.FullName.Substring($stageFull.Length + 1).Replace('\', '/')
+      [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, $_.FullName, $entryName, [IO.Compression.CompressionLevel]::Optimal) | Out-Null
+    }
+  }
+  finally {
+    $archive.Dispose()
+    $zipStream.Dispose()
+  }
 
   Invoke-Az @('group', 'create', '--name', $ResourceGroup, '--location', $Location, '--output', 'none')
+  $previousPreference = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
   $existingApp = (& $script:AzCommand webapp show --name $appName --resource-group $ResourceGroup --query name --output tsv 2>$null)
+  $ErrorActionPreference = $previousPreference
   if (-not $existingApp) {
     Invoke-Az @('appservice', 'plan', 'create', '--name', $planName, '--resource-group', $ResourceGroup, '--location', $Location, '--sku', 'F1', '--is-linux', '--output', 'none')
     Invoke-Az @('webapp', 'create', '--name', $appName, '--resource-group', $ResourceGroup, '--plan', $planName, '--runtime', 'NODE:22-lts', '--https-only', 'true', '--output', 'none')
