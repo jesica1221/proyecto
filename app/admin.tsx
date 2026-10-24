@@ -220,15 +220,6 @@ export default function AdminScreen() {
           </View>
 
           <TouchableOpacity
-            style={[styles.logoutButton, { marginRight: 10 }]}
-            onPress={() => router.push('/dashboard')}
-          >
-            <ThemedText style={styles.logoutButtonText}>
-              Dashboard en vivo
-            </ThemedText>
-          </TouchableOpacity>
-
-          <TouchableOpacity
             style={styles.logoutButton}
             onPress={handleLogout}
           >
@@ -239,6 +230,21 @@ export default function AdminScreen() {
 
           </TouchableOpacity>
 
+        </View>
+
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={() => router.push('/dashboard')}
+          >
+            <ThemedText style={styles.logoutButtonText}>Dashboard en vivo</ThemedText>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={() => router.push('/assistant')}
+          >
+            <ThemedText style={styles.logoutButtonText}>✨ Asistente IA</ThemedText>
+          </TouchableOpacity>
         </View>
 
       </ThemedView>
@@ -377,6 +383,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+
+  headerActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 14,
   },
 
   userInfo: {

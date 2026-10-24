@@ -300,6 +300,9 @@ export default function StudentScreen() {
         </ThemedText>
 
         <View style={styles.headerButtons}>
+          <TouchableOpacity onPress={() => router.push('/assistant')} style={styles.headerButton}>
+            <ThemedText style={styles.headerButtonText}>✨ Asistente IA</ThemedText>
+          </TouchableOpacity>
           <TouchableOpacity onPress={handleLogout} style={styles.headerButton}>
             <ThemedText style={styles.headerButtonText}>Salir</ThemedText>
           </TouchableOpacity>
