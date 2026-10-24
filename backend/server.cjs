@@ -11,7 +11,7 @@ const appPort = Number(process.env.PORT || 4000);
 const listenHost = process.env.HOST || (process.env.NODE_ENV === 'production' ? '127.0.0.1' : '0.0.0.0');
 const jwtSecret = process.env.JWT_SECRET || (process.env.NODE_ENV === 'production' ? '' : 'local-only-change-this-secret');
 
-function createApp(db = openDatabase()) {
+function createApp(db = openDatabase(), { fetchImpl = globalThis.fetch } = {}) {
   if (!jwtSecret) throw new Error('Set JWT_SECRET to a random secret before starting in production.');
   const app = express();
   app.disable('x-powered-by');
@@ -279,6 +279,36 @@ function createApp(db = openDatabase()) {
     });
   });
 
+  app.post('/eficient-parking-lot/validar_qr.php', authenticate, requireRole('security', 'admin'), (req, res) => {
+    expireReservations();
+    const match = /^USER-.+-([^-]+)-ESPACIO-(\d+)$/.exec(String(req.body.codigo || '').trim());
+    if (!match) return res.json({ success: true, valido: false, motivo: 'Formato de código QR inválido.' });
+    const [, cedula, number] = match;
+    const reservation = db.prepare(`
+      SELECT u.*, s.number, s.zone_id, z.name AS zone_name, r.expires_at
+      FROM reservations r
+      JOIN users u ON u.id = r.user_id
+      JOIN parking_spaces s ON s.id = r.space_id
+      JOIN zones z ON z.id = s.zone_id
+      WHERE r.status = 'active' AND u.cedula = ? AND s.number = ?
+    `).get(cedula, Number(number));
+    if (!reservation) {
+      return res.json({ success: true, valido: false, motivo: 'No hay una reserva activa que coincida con este código.' });
+    }
+    return res.json({
+      success: true,
+      valido: true,
+      usuario: {
+        ...publicUser(reservation),
+        nombre: reservation.name,
+        numero: String(reservation.number),
+        zonaId: String(reservation.zone_id),
+        zonaNombre: reservation.zone_name,
+        horaVencimiento: reservation.expires_at,
+      },
+    });
+  });
+
   app.post('/eficient-parking-lot/buscar_usuario_placa.php', authenticate, requireRole('security', 'admin'), (req, res) => {
     const key = String(req.body.cedula || req.body.placa || '').trim().toUpperCase();
     const user = db.prepare('SELECT * FROM users WHERE UPPER(plate) = ? OR cedula = ?').get(key, key);
@@ -412,13 +442,18 @@ function createApp(db = openDatabase()) {
     }));
     const active = db.prepare("SELECT COUNT(*) AS count FROM reservations WHERE status = 'active'").get().count;
     const total = db.prepare('SELECT COUNT(*) AS count FROM parking_spaces').get().count;
-    const today = new Date();
-    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
+    const colombiaNow = new Date(Date.now() - 5 * 60 * 60_000);
+    const startOfDay = new Date(Date.UTC(
+      colombiaNow.getUTCFullYear(),
+      colombiaNow.getUTCMonth(),
+      colombiaNow.getUTCDate(),
+      5,
+    )).toISOString();
     const events = db.prepare(`
       SELECT event_type, COUNT(*) AS count FROM parking_events WHERE created_at >= ? GROUP BY event_type
     `).all(startOfDay);
     const hourly = db.prepare(`
-      SELECT CAST(strftime('%H', created_at) AS INTEGER) AS hour, COUNT(*) AS count
+      SELECT CAST(strftime('%H', created_at, '-5 hours') AS INTEGER) AS hour, COUNT(*) AS count
       FROM parking_events
       WHERE event_type IN ('reserved', 'assigned', 'visitor_assigned') AND created_at >= ?
       GROUP BY hour ORDER BY hour
@@ -430,6 +465,58 @@ function createApp(db = openDatabase()) {
       WHERE r.created_at >= ? GROUP BY z.vehicle_type
     `).all(new Date(Date.now() - 7 * 24 * 60 * 60_000).toISOString())
       .map((row) => ({ tipo: row.tipo === 'motorcycle' ? 'Motos' : 'Carros', total: row.total }));
+
+    // Los instantes se guardan en UTC; el análisis se presenta en hora de Colombia (UTC-5).
+    const since14 = new Date(Date.now() - 14 * 24 * 60 * 60_000).toISOString();
+    const dailyRows = db.prepare(`
+      SELECT date(created_at, '-5 hours') AS dia, COUNT(*) AS total
+      FROM reservations WHERE created_at >= ? GROUP BY dia
+    `).all(since14);
+    const dailyMap = new Map(dailyRows.map((row) => [row.dia, row.total]));
+    const dailyTrend = Array.from({ length: 14 }, (_, index) => {
+      const day = new Date(Date.now() - (13 - index) * 24 * 60 * 60_000 - 5 * 60 * 60_000)
+        .toISOString().slice(0, 10);
+      return { dia: day, total: dailyMap.get(day) ?? 0 };
+    });
+    const statusRows = db.prepare('SELECT status, COUNT(*) AS total FROM reservations GROUP BY status').all();
+    const statusTotal = statusRows.reduce((sum, row) => sum + row.total, 0);
+    const statusCount = (status) => statusRows.find((row) => row.status === status)?.total ?? 0;
+    const peakHours = db.prepare(`
+      SELECT CAST(strftime('%H', created_at, '-5 hours') AS INTEGER) AS hora, COUNT(*) AS total
+      FROM parking_events WHERE event_type IN ('reserved', 'assigned', 'visitor_assigned')
+      GROUP BY hora ORDER BY total DESC, hora ASC LIMIT 3
+    `).all();
+    const averageDuration = db.prepare(`
+      SELECT AVG((julianday(ended_at) - julianday(created_at)) * 1440) AS minutos
+      FROM reservations WHERE ended_at IS NOT NULL AND status IN ('cancelled', 'completed')
+    `).get().minutos;
+    const zoneUsage = db.prepare(`
+      SELECT z.name AS zona, z.vehicle_type AS tipo, COUNT(r.id) AS total
+      FROM zones z
+      JOIN parking_spaces s ON s.zone_id = z.id
+      LEFT JOIN reservations r ON r.space_id = s.id AND r.created_at >= ?
+      GROUP BY z.id ORDER BY total DESC, z.id
+    `).all(new Date(Date.now() - 30 * 24 * 60 * 60_000).toISOString())
+      .map((row) => ({ zona: row.zona, tipo: row.tipo === 'motorcycle' ? 'moto' : 'carro', total: row.total }));
+    const roleMix = db.prepare(`
+      SELECT u.role AS rol, COUNT(r.id) AS total
+      FROM reservations r JOIN users u ON u.id = r.user_id GROUP BY u.role ORDER BY total DESC
+    `).all().map((row) => ({
+      rol: { student: 'Estudiantes', visitor: 'Visitantes', admin: 'Administración', security: 'Seguridad' }[row.rol] || row.rol,
+      total: row.total,
+    }));
+    const percentOf = (value) => (statusTotal ? Math.round(value * 1000 / statusTotal) / 10 : 0);
+    const analysis = {
+      totalReservas: statusTotal,
+      tendenciaDiaria: dailyTrend,
+      estados: statusRows.map((row) => ({ estado: row.status, total: row.total })),
+      tasaCancelacionPct: percentOf(statusCount('cancelled')),
+      tasaExpiracionPct: percentOf(statusCount('expired')),
+      duracionPromedioMin: averageDuration === null ? null : Math.round(averageDuration * 10) / 10,
+      horasPico: peakHours,
+      usoPorZona30Dias: zoneUsage,
+      usoPorRol: roleMix,
+    };
     return res.json({
       success: true,
       actualizado: nowIso(),
@@ -443,6 +530,105 @@ function createApp(db = openDatabase()) {
       zonas: zones,
       actividadPorHora: hourly,
       vehiculosUltimos7Dias: vehicleMix,
+      analisis: analysis,
+    });
+  });
+
+  app.post('/api/assistant/chat', authenticate, async (req, res) => {
+    const question = typeof req.body.question === 'string' ? req.body.question.trim() : '';
+    const history = req.body.history === undefined ? [] : req.body.history;
+    if (!question || question.length > 1200) {
+      return sendFailure(res, 400, 'Escribe una pregunta de hasta 1200 caracteres.');
+    }
+    if (!Array.isArray(history) || history.length > 10 || history.some((message) => (
+      !message
+      || !['user', 'assistant'].includes(message.role)
+      || typeof message.content !== 'string'
+      || !message.content.trim()
+      || message.content.length > 1200
+    ))) {
+      return sendFailure(res, 400, 'El historial debe contener hasta 10 mensajes válidos.');
+    }
+
+    const apiKey = process.env.AI_API_KEY;
+    if (!apiKey) return sendFailure(res, 503, 'El asistente no está configurado. Contacta al administrador.');
+
+    const apiUrl = process.env.AI_API_URL || 'https://api.openai.com/v1/chat/completions';
+    const model = process.env.AI_MODEL || 'gpt-4o-mini';
+    const messages = [
+      {
+        role: 'system',
+        content: [
+          'Eres el asistente del sistema Efficient Parking y experto en Industria 5.0.',
+          'Responde en español, de forma clara, breve y útil, sobre parqueaderos inteligentes, sostenibilidad y tecnologías de Industria 5.0.',
+          'Prioriza soluciones centradas en las personas, sostenibles y resilientes; puedes explicar IA, IoT, sensores, gemelos digitales y computación perimetral.',
+          'No afirmes que una función existe en esta aplicación si no está descrita en la conversación.',
+          'Devuelve únicamente un objeto JSON válido con esta forma exacta: {"respuesta":"texto","tecnologias":[{"nombre":"texto","beneficio":"texto"}],"siguientePregunta":"texto o cadena vacía"}.',
+          'Usa un arreglo vacío cuando no haya tecnologías relevantes y no incluyas Markdown ni propiedades adicionales.',
+        ].join(' '),
+      },
+      ...history.map(({ role, content }) => ({ role, content: content.trim() })),
+      { role: 'user', content: question },
+    ];
+
+    let providerResponse;
+    try {
+      providerResponse = await fetchImpl(apiUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          response_format: { type: 'json_object' },
+          temperature: 0.4,
+          max_tokens: 600,
+        }),
+        signal: AbortSignal.timeout(30_000),
+      });
+    } catch (error) {
+      console.error('AI provider request failed:', error);
+      return sendFailure(res, 502, 'No se pudo conectar con el servicio de IA. Intenta nuevamente.');
+    }
+    if (!providerResponse.ok) {
+      console.error(`AI provider returned HTTP ${providerResponse.status}.`);
+      return sendFailure(res, 502, 'El servicio de IA no pudo procesar la pregunta.');
+    }
+
+    let providerData;
+    try {
+      providerData = await providerResponse.json();
+    } catch (error) {
+      console.error('AI provider returned an invalid response:', error);
+      return sendFailure(res, 502, 'El servicio de IA devolvió una respuesta inválida.');
+    }
+    const content = providerData?.choices?.[0]?.message?.content;
+    let answer;
+    try {
+      answer = JSON.parse(content);
+    } catch {
+      return sendFailure(res, 502, 'El servicio de IA no devolvió un JSON válido.');
+    }
+    if (
+      !answer
+      || typeof answer.respuesta !== 'string'
+      || !Array.isArray(answer.tecnologias)
+      || answer.tecnologias.some((technology) => (
+        !technology
+        || typeof technology.nombre !== 'string'
+        || typeof technology.beneficio !== 'string'
+      ))
+      || typeof answer.siguientePregunta !== 'string'
+    ) {
+      return sendFailure(res, 502, 'El servicio de IA devolvió un JSON con formato inesperado.');
+    }
+    return res.json({
+      success: true,
+      respuesta: answer.respuesta,
+      tecnologias: answer.tecnologias,
+      siguientePregunta: answer.siguientePregunta,
     });
   });
 

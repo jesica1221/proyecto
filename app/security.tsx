@@ -191,57 +191,40 @@ export default function SecurityScreen() {
   };
 
   const handleVerifyQRWithData = async (dataQR: string) => {
-    const parts = dataQR.split('-');
-
-    if (parts[0] !== 'USER' || parts[3] !== 'ESPACIO') {
-      Alert.alert('Error', 'Código QR inválido');
-      return;
-    }
-
-    const nombre = parts[1];
-    const cedula = parts[2];
-    const numeroEspacio = parts[4];
-
     try {
       const response = await fetch(
-        `${Config.API_BASE_URL}/buscar_placa_activa.php`,
+        `${Config.API_BASE_URL}/validar_qr.php`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             ...getAuthHeaders(),
           },
-          body: JSON.stringify({
-            cedula: cedula,
-            token: token,
-          }),
+          body: JSON.stringify({ codigo: dataQR }),
         }
       );
 
       const data = await response.json();
 
-      if (data.tieneParqueadero && data.usuario) {
+      if (data.success && data.valido && data.usuario) {
         const usuario = data.usuario;
-        const nombreZona = getNombreZona(usuario.zonaId || usuario.zona);
-
         Alert.alert(
           "✅ Acceso permitido",
-          `👤 Nombre: ${usuario.nombre || nombre}\n🆔 Cédula: ${usuario.cedula || cedula}\n📍 Zona: ${nombreZona}\n🅿️ Espacio: #${usuario.numero || numeroEspacio}`,
+          `Nombre: ${usuario.nombre}\nCédula: ${usuario.cedula}\nZona: ${usuario.zonaNombre || getNombreZona(usuario.zonaId)}\nEspacio: #${usuario.numero}`,
           [{ text: "OK" }]
         );
       } else {
         Alert.alert(
-          "✅ Código QR válido",
-          `👤 Nombre: ${nombre}\n🆔 Cédula: ${cedula}\n🅿️ Espacio: #${numeroEspacio}`,
+          "⛔ Acceso denegado",
+          data.motivo || data.message || "El código QR no corresponde a una reserva activa.",
           [{ text: "OK" }]
         );
       }
     } catch (error) {
       console.log(error);
       Alert.alert(
-        "✅ Código QR válido",
-        `👤 Nombre: ${nombre}\n🆔 Cédula: ${cedula}\n🅿️ Espacio: #${numeroEspacio}`,
-        [{ text: "OK" }]
+        "⛔ No se pudo validar",
+        "Sin conexión con el servidor no se puede confirmar la reserva. Intenta de nuevo."
       );
     }
   };
@@ -412,9 +395,14 @@ export default function SecurityScreen() {
 
             <ThemedView style={styles.header}>
               <ThemedText style={styles.title}>🔐 Seguridad</ThemedText>
-              <TouchableOpacity onPress={handleLogout}>
-                <ThemedText style={styles.logout}>Salir</ThemedText>
-              </TouchableOpacity>
+              <View style={styles.headerActions}>
+                <TouchableOpacity onPress={() => router.push('/assistant')}>
+                  <ThemedText style={styles.assistantLink}>✨ Asistente IA</ThemedText>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleLogout}>
+                  <ThemedText style={styles.logout}>Salir</ThemedText>
+                </TouchableOpacity>
+              </View>
             </ThemedView>
 
             <View style={styles.cameraContainer}>
@@ -544,6 +532,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center'
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14
+  },
   title: {
     color: '#fff',
     fontSize: 30,
@@ -552,6 +545,11 @@ const styles = StyleSheet.create({
   logout: {
     color: '#fff',
     fontSize: 16
+  },
+  assistantLink: {
+    color: '#7dd3fc',
+    fontSize: 15,
+    fontWeight: '600'
   },
   cameraContainer: {
     height: 260,

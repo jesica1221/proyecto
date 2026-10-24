@@ -32,6 +32,24 @@ type DashboardData = {
   }[];
   actividadPorHora: { hour: number; count: number }[];
   vehiculosUltimos7Dias: { tipo: string; total: number }[];
+  analisis: {
+    totalReservas: number;
+    tendenciaDiaria: { dia: string; total: number }[];
+    estados: { estado: string; total: number }[];
+    tasaCancelacionPct: number;
+    tasaExpiracionPct: number;
+    duracionPromedioMin: number | null;
+    horasPico: { hora: number; total: number }[];
+    usoPorZona30Dias: { zona: string; tipo: string; total: number }[];
+    usoPorRol: { rol: string; total: number }[];
+  };
+};
+
+const statusLabels: Record<string, string> = {
+  active: 'Activas',
+  cancelled: 'Canceladas',
+  expired: 'Vencidas',
+  completed: 'Completadas',
 };
 
 const colors = {
@@ -93,6 +111,12 @@ export default function DashboardScreen() {
   const chartHeight = 205;
   const chartBars = data?.actividadPorHora ?? [];
   const vehicleMax = Math.max(1, ...(data?.vehiculosUltimos7Dias.map((item) => item.total) ?? [0]));
+  const analysis = data?.analisis;
+  const trend = analysis?.tendenciaDiaria ?? [];
+  const trendMax = Math.max(1, ...trend.map((item) => item.total));
+  const zoneUsageMax = Math.max(1, ...(analysis?.usoPorZona30Dias.map((item) => item.total) ?? [0]));
+  const roleMax = Math.max(1, ...(analysis?.usoPorRol.map((item) => item.total) ?? [0]));
+  const statusMax = Math.max(1, ...(analysis?.estados.map((item) => item.total) ?? [0]));
 
   return (
     <ScrollView style={styles.page} contentContainerStyle={styles.content}>
@@ -197,6 +221,82 @@ export default function DashboardScreen() {
                 );
               })}
             </View>
+            {analysis ? (
+              <>
+                <View style={styles.heading}>
+                  <View>
+                    <Text style={styles.title}>Análisis exploratorio</Text>
+                    <Text style={styles.description}>Patrones de uso construidos con {analysis.totalReservas} reservas registradas.</Text>
+                  </View>
+                </View>
+
+                <View style={styles.metricGrid}>
+                  <Metric label="Duración promedio" value={analysis.duracionPromedioMin === null ? 'N/D' : `${analysis.duracionPromedioMin} min`} detail="reservas finalizadas" accent={colors.blue} />
+                  <Metric label="Tasa de cancelación" value={`${analysis.tasaCancelacionPct}%`} detail="sobre el total de reservas" accent={colors.amber} />
+                  <Metric label="Tasa de vencimiento" value={`${analysis.tasaExpiracionPct}%`} detail="reservas no utilizadas" accent="#DC2626" />
+                  <Metric
+                    label="Horas pico"
+                    value={analysis.horasPico.length ? analysis.horasPico.map((item) => `${String(item.hora).padStart(2, '0')}:00`).join(' · ') : 'N/D'}
+                    detail="mayor demanda histórica"
+                    accent={colors.green}
+                  />
+                </View>
+
+                <View style={styles.card}>
+                  <Text style={styles.cardTitle}>Tendencia de reservas (14 días)</Text>
+                  <Text style={styles.cardDescription}>Reservas creadas por día, hora de Colombia</Text>
+                  <View style={styles.chartFrame}>
+                    <Svg width={chartWidth} height={chartHeight}>
+                      <Line x1="36" y1="165" x2={chartWidth - 10} y2="165" stroke={colors.border} strokeWidth="1" />
+                      {trend.map((item, index) => {
+                        const slotWidth = (chartWidth - 58) / Math.max(trend.length, 1);
+                        const barHeight = item.total ? Math.max(4, (item.total / trendMax) * 120) : 2;
+                        const x = 38 + index * slotWidth;
+                        return (
+                          <React.Fragment key={item.dia}>
+                            <Rect x={x + 3} y={165 - barHeight} width={Math.max(4, slotWidth - 7)} height={barHeight} rx="4" fill={colors.green} opacity="0.88" />
+                            <SvgText x={x + slotWidth / 2} y="187" fontSize="9" fill={colors.muted} textAnchor="middle">{item.dia.slice(8)}</SvgText>
+                          </React.Fragment>
+                        );
+                      })}
+                    </Svg>
+                  </View>
+                </View>
+
+                <View style={[styles.visualGrid, isWide && styles.visualGridWide]}>
+                  <View style={styles.card}>
+                    <Text style={styles.cardTitle}>Uso por zona (30 días)</Text>
+                    <Text style={styles.cardDescription}>Reservas acumuladas por zona</Text>
+                    {analysis.usoPorZona30Dias.map((item) => (
+                      <View key={item.zona} style={styles.vehicleRow}>
+                        <View style={styles.vehicleLabel}><Text style={styles.vehicleName}>{item.zona}</Text><Text style={styles.vehicleValue}>{item.total}</Text></View>
+                        <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${Math.max(2, item.total / zoneUsageMax * 100)}%` }]} /></View>
+                      </View>
+                    ))}
+                  </View>
+                  <View style={styles.card}>
+                    <Text style={styles.cardTitle}>Resultado de las reservas</Text>
+                    <Text style={styles.cardDescription}>Distribución por estado</Text>
+                    {analysis.estados.length ? analysis.estados.map((item) => (
+                      <View key={item.estado} style={styles.vehicleRow}>
+                        <View style={styles.vehicleLabel}><Text style={styles.vehicleName}>{statusLabels[item.estado] ?? item.estado}</Text><Text style={styles.vehicleValue}>{item.total}</Text></View>
+                        <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${Math.max(2, item.total / statusMax * 100)}%` }]} /></View>
+                      </View>
+                    )) : <Text style={styles.emptyText}>Aún no hay reservas para analizar.</Text>}
+                  </View>
+                  <View style={styles.card}>
+                    <Text style={styles.cardTitle}>Perfil de usuarios</Text>
+                    <Text style={styles.cardDescription}>Reservas por tipo de usuario</Text>
+                    {analysis.usoPorRol.length ? analysis.usoPorRol.map((item) => (
+                      <View key={item.rol} style={styles.vehicleRow}>
+                        <View style={styles.vehicleLabel}><Text style={styles.vehicleName}>{item.rol}</Text><Text style={styles.vehicleValue}>{item.total}</Text></View>
+                        <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${Math.max(2, item.total / roleMax * 100)}%` }]} /></View>
+                      </View>
+                    )) : <Text style={styles.emptyText}>Aún no hay reservas para analizar.</Text>}
+                  </View>
+                </View>
+              </>
+            ) : null}
             <Text style={styles.footer}>Fuente: registros operativos compartidos por la aplicación móvil y web.</Text>
           </>
         ) : null}
