@@ -1,12 +1,33 @@
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import useAuthStore from '@/store/useAuthStore';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const roleLabels: Record<string, string> = {
+  student: 'Estudiante',
+  admin: 'Administrativo / Docente',
+  security: 'Seguridad',
+};
+
+const zoneText: Record<string, string> = {
+  student: 'Acceso a las zonas de estudiantes con cupos disponibles para tu tipo de vehículo.',
+  admin: 'Acceso al panel de administración, zonas y dashboard de ocupación.',
+  security: 'Acceso al escaneo de QR, búsqueda de usuarios y asignación de espacios.',
+};
+
+function InfoRow({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+  return (
+    <View style={styles.infoRow}>
+      <Text style={styles.label}>{label}</Text>
+      <Text style={[styles.value, highlight && styles.highlight]}>{value || '—'}</Text>
+    </View>
+  );
+}
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user, logout } = useAuthStore();
 
   const handleLogout = () => {
@@ -16,194 +37,103 @@ export default function ProfileScreen() {
 
   if (!user) {
     return (
-      <ThemedView style={styles.container}>
-        <ThemedText type="title">Cargando...</ThemedText>
-      </ThemedView>
+      <View style={styles.loading}>
+        <Text style={styles.loadingText}>Cargando...</Text>
+      </View>
     );
   }
 
+  const role = String(user.rol);
+  const isMoto = String(user.tipoVehiculo).toLowerCase().startsWith('moto');
+  const initial = (user.nombre || '?').trim().charAt(0).toUpperCase();
+
   return (
-    <ScrollView style={styles.scrollContainer}>
-      <ThemedView style={styles.container}>
-        <ThemedView style={styles.profileHeader}>
-          <ThemedView style={styles.avatarContainer}>
-            <ThemedText style={styles.avatar}>
-              {user.rol === 'student' ? '' : user.rol === 'admin' ? '' : ''}
-            </ThemedText>
-          </ThemedView>
+    <View style={styles.screen}>
+      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>{initial}</Text>
+        </View>
+        <View style={styles.headerTexts}>
+          <Text style={styles.name} numberOfLines={2}>{user.nombre}</Text>
+          <Text style={styles.role}>{roleLabels[role] ?? role}</Text>
+        </View>
+        <TouchableOpacity
+          accessibilityLabel="Editar perfil"
+          style={styles.editButton}
+          onPress={() => router.push('/editar-perfil')}
+        >
+          <Text style={styles.editText}>✏️</Text>
+        </TouchableOpacity>
+      </View>
 
-          <ThemedView style={styles.headerContent}>
-            <ThemedText type="title">{user.nombre}</ThemedText>
-            <ThemedText style={styles.roleLabel}>
-              {user.rol === 'student'
-                ? 'Estudiante'
-                : user.rol === 'admin'
-                  ? 'Administrativo/Docente'
-                  : 'Seguridad'}
-            </ThemedText>
-          </ThemedView>
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Información personal</Text>
+          <InfoRow label="Cédula" value={user.cedula} />
+          <InfoRow label="Rol" value={roleLabels[role] ?? role} />
+        </View>
 
-          <TouchableOpacity
-            style={styles.editButton}
-            onPress={() => router.push('/editar-perfil')}
-          >
-            <ThemedText style={styles.editButtonText}>✏️</ThemedText>
-          </TouchableOpacity>
-        </ThemedView>
+        {role === 'student' && (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Mi vehículo</Text>
+            <InfoRow label="Placa" value={user.placa} highlight />
+            <InfoRow label="Tipo" value={isMoto ? '🏍️ Moto' : '🚗 Carro'} />
+          </View>
+        )}
 
-        <ThemedView style={styles.card}>
-          <ThemedText type="subtitle"> Información Personal</ThemedText>
-          <ThemedView style={styles.infoRow}>
-            <ThemedText style={styles.label}>Cédula:</ThemedText>
-            <ThemedText style={styles.value}>{user.cedula}</ThemedText>
-          </ThemedView>
-          <ThemedView style={styles.infoRow}>
-            <ThemedText style={styles.label}>Rol:</ThemedText>
-            <ThemedText style={styles.value}>
-              {user.rol === 'student'
-                ? 'Estudiante'
-                : user.rol === 'admin'
-                  ? 'Administrativo/Docente'
-                  : 'Seguridad'}
-            </ThemedText>
-          </ThemedView>
-        </ThemedView>
-
-        <ThemedView style={styles.card}>
-          <ThemedText type="subtitle"> Información del Vehículo</ThemedText>
-          <ThemedView style={styles.infoRow}>
-            <ThemedText style={styles.label}>Placa:</ThemedText>
-            <ThemedText style={[styles.value, styles.plateValue]}>{user.placa}</ThemedText>
-          </ThemedView>
-          <ThemedView style={styles.infoRow}>
-            <ThemedText style={styles.label}>Tipo:</ThemedText>
-            <ThemedText style={styles.value}>
-              {user.tipoVehiculo === 'car' ? ' Auto' : ' Moto'}
-            </ThemedText>
-          </ThemedView>
-        </ThemedView>
-
-        <ThemedView style={styles.card}>
-          <ThemedText type="subtitle"> Zonas Permitidas</ThemedText>
-          <ThemedText style={styles.permissionsText}>
-            {user.rol === 'student'
-              ? 'Acceso a zonas de estudiantes'
-              : user.rol === 'admin'
-                ? 'Acceso a zonas administrativas/docentes'
-                : 'Acceso a zonas de seguridad'}
-          </ThemedText>
-        </ThemedView>
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Permisos</Text>
+          <Text style={styles.permissions}>{zoneText[role] ?? ''}</Text>
+        </View>
 
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <ThemedText style={styles.logoutButtonText}>Cerrar Sesión</ThemedText>
+          <Text style={styles.logoutText}>Cerrar sesión</Text>
         </TouchableOpacity>
 
-        <ThemedView style={styles.versionContainer}>
-          <ThemedText style={styles.versionText}>Parking Seguro v1.0.0</ThemedText>
-          <ThemedText style={styles.versionText}>Sistema de Parqueadero Universitario</ThemedText>
-        </ThemedView>
-      </ThemedView>
-    </ScrollView>
+        <Text style={styles.version}>Efficient Parking v1.0 · Universidad de Cundinamarca</Text>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollContainer: {
-    flex: 1,
-  },
-  container: {
-    padding: 16,
-    gap: 16,
-  },
-  profileHeader: {
+  screen: { flex: 1, backgroundColor: '#f1f5f9' },
+  loading: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f1f5f9' },
+  loadingText: { color: '#334155', fontSize: 16 },
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#ddd',
+    gap: 14,
+    paddingHorizontal: 20,
+    paddingBottom: 22,
+    backgroundColor: '#0f3d5e',
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
-  headerContent: {
-    flex: 1,
-  },
-  editButton: {
-    backgroundColor: '#334155',
-    padding: 10,
-    borderRadius: 8,
-  },
-  editButtonText: {
-    fontSize: 18,
-  },
-  avatarContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#e7f3ff',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatar: {
-    fontSize: 40,
-  },
-  roleLabel: {
-    marginTop: 4,
-    opacity: 0.7,
-  },
-  card: {
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
-    padding: 12,
-    gap: 12,
-  },
+  avatar: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', backgroundColor: '#38bdf8' },
+  avatarText: { color: '#0f3d5e', fontSize: 28, fontWeight: '800' },
+  headerTexts: { flex: 1 },
+  name: { color: '#fff', fontSize: 22, lineHeight: 28, fontWeight: '800' },
+  role: { marginTop: 2, color: '#c9dff0', fontSize: 14 },
+  editButton: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.18)' },
+  editText: { fontSize: 18 },
+  content: { padding: 16, gap: 14, paddingBottom: 32 },
+  card: { padding: 16, borderRadius: 16, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e2e8f0' },
+  cardTitle: { marginBottom: 6, color: '#0f3d5e', fontSize: 17, fontWeight: '700' },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
+    gap: 12,
+    paddingVertical: 11,
+    borderTopWidth: 1,
+    borderTopColor: '#eef2f6',
   },
-  label: {
-    fontWeight: '600',
-    flex: 1,
-  },
-  value: {
-    flex: 1,
-    textAlign: 'right',
-  },
-  plateValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#007bff',
-  },
-  permissionsText: {
-    fontSize: 13,
-    lineHeight: 18,
-    backgroundColor: '#e7f3ff',
-    padding: 8,
-    borderRadius: 4,
-  },
-  logoutButton: {
-    backgroundColor: '#dc3545',
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  logoutButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  versionContainer: {
-    alignItems: 'center',
-    paddingVertical: 16,
-    gap: 4,
-    marginTop: 16,
-  },
-  versionText: {
-    fontSize: 12,
-    opacity: 0.5,
-    textAlign: 'center',
-  },
+  label: { color: '#64748b', fontSize: 15 },
+  value: { flexShrink: 1, color: '#0f172a', fontSize: 16, fontWeight: '600', textAlign: 'right' },
+  highlight: { color: '#0369a1', fontSize: 18, fontWeight: '800', letterSpacing: 1 },
+  permissions: { color: '#334155', fontSize: 14, lineHeight: 21 },
+  logoutButton: { marginTop: 6, paddingVertical: 15, borderRadius: 14, alignItems: 'center', backgroundColor: '#dc2626' },
+  logoutText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  version: { marginTop: 8, textAlign: 'center', color: '#94a3b8', fontSize: 12 },
 });

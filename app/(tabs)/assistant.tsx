@@ -1,7 +1,7 @@
-import { ThemedText } from '@/components/themed-text';
 import Config from '@/constants/config';
 import useAuthStore from '@/store/useAuthStore';
 import { useRef, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ActivityIndicator,
   FlatList,
@@ -35,6 +35,7 @@ const initialMessage: ChatMessage = {
 
 export default function AssistantScreen() {
   const { getAuthHeaders } = useAuthStore();
+  const insets = useSafeAreaInsets();
   const [messages, setMessages] = useState<ChatMessage[]>([initialMessage]);
   const [question, setQuestion] = useState('');
   const [loading, setLoading] = useState(false);
@@ -124,12 +125,15 @@ export default function AssistantScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
     >
-      <View style={styles.header}>
-        <ThemedText type="title" style={styles.title}>Asistente IA</ThemedText>
-        <Text style={styles.subtitle}>Parqueadero inteligente · Industria 5.0</Text>
+      <View style={[styles.header, { paddingTop: insets.top + 14 }]}>
+        <View style={styles.headerIcon}><Text style={styles.headerIconText}>✨</Text></View>
+        <View style={styles.headerTexts}>
+          <Text style={styles.title}>Asistente IA</Text>
+          <Text style={styles.subtitle}>Parqueadero inteligente · Industria 5.0</Text>
+        </View>
       </View>
       <FlatList
         ref={listRef}
@@ -177,11 +181,14 @@ export default function AssistantScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f4f7fb' },
-  header: { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 16, backgroundColor: '#fff' },
-  title: { color: '#18324b' },
-  subtitle: { marginTop: 4, color: '#5c6b7c', fontSize: 14 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingBottom: 16, backgroundColor: '#0f3d5e' },
+  headerIcon: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.18)' },
+  headerIconText: { fontSize: 22 },
+  headerTexts: { flex: 1 },
+  title: { color: '#fff', fontSize: 24, lineHeight: 30, fontWeight: '800' },
+  subtitle: { marginTop: 2, color: '#c9dff0', fontSize: 13 },
   messages: { padding: 16, gap: 12 },
-  message: { maxWidth: '88%', borderRadius: 16, padding: 14 },
+  message: { maxWidth: '92%', borderRadius: 18, padding: 14 },
   userMessage: { alignSelf: 'flex-end', backgroundColor: '#0a7ea4' },
   assistantMessage: { alignSelf: 'flex-start', backgroundColor: '#fff', borderWidth: 1, borderColor: '#e1e8ef' },
   messageLabel: { marginBottom: 6, color: '#0a7ea4', fontSize: 12, fontWeight: '700' },

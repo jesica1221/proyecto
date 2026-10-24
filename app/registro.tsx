@@ -18,11 +18,11 @@ export default function Registro() {
   const [nombre, setNombre] = useState("");
   const [cedula, setCedula] = useState("");
   const [password, setPassword] = useState("");
-  const [rol, setRol] = useState("estudiante");
+  const rol = "estudiante";
   const [placa, setPlaca] = useState("");
   const [tipoVehiculo, setTipoVehiculo] = useState("carro");
   const [aceptaTerminos, setAceptaTerminos] = useState(false);
-  const [claveAdmin, setClaveAdmin] = useState("");
+  const claveAdmin = "";
   const [mensaje, setMensaje] = useState("");
   const [error, setError] = useState("");
   const [guardando, setGuardando] = useState(false);
@@ -36,16 +36,9 @@ export default function Registro() {
       return;
     }
 
-    if (rol === "estudiante" && !placa) {
+    if (!placa) {
       setError("Debes ingresar la placa del vehículo.");
       return;
-    }
-
-    if (rol === "admin" || rol === "seguridad") {
-      if (!claveAdmin) {
-        setError("Ingresa la clave de registro autorizada.");
-        return;
-      }
     }
 
     if (!aceptaTerminos) {
@@ -134,78 +127,31 @@ export default function Registro() {
         onChangeText={setPassword}
       />
 
-      <Text style={styles.label}>Rol</Text>
+      <Text style={styles.label}>Placa</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="ABC123"
+        placeholderTextColor="#64748B"
+        value={placa}
+        onChangeText={(text) => setPlaca(text.toUpperCase())}
+      />
+
+      <Text style={styles.label}>Tipo de vehículo</Text>
       <View style={styles.row}>
-
         <TouchableOpacity
-          style={[styles.boton, rol === "estudiante" && styles.activo]}
-          onPress={() => setRol("estudiante")}
+          style={[styles.boton, tipoVehiculo === "carro" && styles.activo]}
+          onPress={() => setTipoVehiculo("carro")}
         >
-          <Text style={{ color: rol === "estudiante" ? "#fff" : "#94A3B8" }}>🧑‍🎓 Usuario</Text>
+          <Text style={{ color: tipoVehiculo === "carro" ? "#fff" : "#94A3B8" }}>🚗 Carro</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.boton, rol === "admin" && styles.activo]}
-          onPress={() => setRol("admin")}
+          style={[styles.boton, tipoVehiculo === "moto" && styles.activo]}
+          onPress={() => setTipoVehiculo("moto")}
         >
-          <Text style={{ color: rol === "admin" ? "#fff" : "#94A3B8" }}>👨‍💻 Administrador</Text>
+          <Text style={{ color: tipoVehiculo === "moto" ? "#fff" : "#94A3B8" }}>🏍️ Moto</Text>
         </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.boton, rol === "seguridad" && styles.activo]}
-          onPress={() => setRol("seguridad")}
-        >
-          <Text style={{ color: rol === "seguridad" ? "#fff" : "#94A3B8" }}>👮 Seguridad</Text>
-        </TouchableOpacity>
-
       </View>
-
-      {rol === "estudiante" ? (
-        <View>
-          <Text style={styles.label}>Placa</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="ABC123"
-            placeholderTextColor="#64748B"
-            value={placa}
-            onChangeText={(text) => setPlaca(text.toUpperCase())}
-          />
-
-          <Text style={styles.label}>
-            Tipo de vehículo
-          </Text>
-
-          <View style={styles.row}>
-            <TouchableOpacity
-              style={[styles.boton, tipoVehiculo === "carro" && styles.activo]}
-              onPress={() => setTipoVehiculo("carro")}
-            >
-              <Text style={{ color: tipoVehiculo === "carro" ? "#fff" : "#94A3B8" }}>🚗 Carro</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.boton, tipoVehiculo === "moto" && styles.activo]}
-              onPress={() => setTipoVehiculo("moto")}
-            >
-              <Text style={{ color: tipoVehiculo === "moto" ? "#fff" : "#94A3B8" }}>🏍️ Moto</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      ) : (
-        <View>
-          <Text style={styles.label}>
-            Clave de administrador
-          </Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Clave secreta"
-            placeholderTextColor="#64748B"
-            secureTextEntry
-            value={claveAdmin}
-            onChangeText={setClaveAdmin}
-          />
-        </View>
-      )}
 
       <TouchableOpacity
         style={[styles.terminos, { backgroundColor: "transparent" }]}

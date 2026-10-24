@@ -88,6 +88,7 @@ try {
   New-Item -ItemType Directory -Path (Join-Path $stage 'dist') -Force | Out-Null
   Copy-Item (Join-Path $repoRoot 'backend\server.cjs') (Join-Path $stage 'backend\server.cjs')
   Copy-Item (Join-Path $repoRoot 'backend\database.cjs') (Join-Path $stage 'backend\database.cjs')
+  Copy-Item (Join-Path $repoRoot 'backend\assistantKnowledge.cjs') (Join-Path $stage 'backend\assistantKnowledge.cjs')
   Copy-Item (Join-Path $repoRoot 'backend\package.json') (Join-Path $stage 'package.json')
   Copy-Item (Join-Path $repoRoot 'backend\package-lock.json') (Join-Path $stage 'package-lock.json')
   Copy-Item (Join-Path $repoRoot 'dist\*') (Join-Path $stage 'dist') -Recurse

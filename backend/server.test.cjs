@@ -228,8 +228,15 @@ test('assistant requires authentication and validates the question and history',
   const unconfigured = await post('/api/assistant/chat', {
     question: '¿Qué es Industria 5.0?',
   }, student.token);
-  assert.equal(unconfigured.success, false);
-  assert.match(unconfigured.message, /no está configurado/);
+  assert.equal(unconfigured.success, true);
+  assert.equal(unconfigured.origen, 'local');
+  assert.match(unconfigured.respuesta, /Industria 5\.0/);
+  assert.ok(Array.isArray(unconfigured.tecnologias));
+  assert.equal(typeof unconfigured.siguientePregunta, 'string');
+
+  const unknown = await post('/api/assistant/chat', { question: 'zzz qqq' }, student.token);
+  assert.equal(unknown.success, true);
+  assert.ok(unknown.respuesta.length > 0);
 });
 
 test('assistant returns a structured JSON answer from the configured provider', async () => {

@@ -1,4 +1,4 @@
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 import React from 'react';
 
 import { HapticTab } from '@/components/haptic-tab';
@@ -10,6 +10,8 @@ import useAuthStore from '@/store/useAuthStore';
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const { user } = useAuthStore();
+  const router = useRouter();
+  const mainRoute = user?.rol === 'admin' ? '/admin' : user?.rol === 'security' ? '/security' : '/student';
 
   return (
     <Tabs
@@ -21,6 +23,12 @@ export default function TabLayout() {
     >
       <Tabs.Screen
         name="index"
+        listeners={{
+          tabPress: (event) => {
+            event.preventDefault();
+            router.navigate(mainRoute);
+          },
+        }}
         options={{
           title: user?.rol === 'student' ? 'Reservar' : user?.rol === 'admin' ? 'Panel Admin' : 'Registrar',
           tabBarIcon: ({ color }) =>

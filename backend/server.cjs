@@ -6,6 +6,7 @@ const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { openDatabase } = require('./database.cjs');
+const { answerLocally } = require('./assistantKnowledge.cjs');
 
 const appPort = Number(process.env.PORT || 4000);
 const listenHost = process.env.HOST || (process.env.NODE_ENV === 'production' ? '127.0.0.1' : '0.0.0.0');
@@ -551,7 +552,8 @@ function createApp(db = openDatabase(), { fetchImpl = globalThis.fetch } = {}) {
     }
 
     const apiKey = process.env.AI_API_KEY;
-    if (!apiKey) return sendFailure(res, 503, 'El asistente no está configurado. Contacta al administrador.');
+    const localAnswer = () => res.json({ success: true, ...answerLocally(question), origen: 'local' });
+    if (!apiKey) return localAnswer();
 
     const apiUrl = process.env.AI_API_URL || 'https://api.openai.com/v1/chat/completions';
     const model = process.env.AI_MODEL || 'gpt-4o-mini';
@@ -590,11 +592,11 @@ function createApp(db = openDatabase(), { fetchImpl = globalThis.fetch } = {}) {
       });
     } catch (error) {
       console.error('AI provider request failed:', error);
-      return sendFailure(res, 502, 'No se pudo conectar con el servicio de IA. Intenta nuevamente.');
+      return localAnswer();
     }
     if (!providerResponse.ok) {
       console.error(`AI provider returned HTTP ${providerResponse.status}.`);
-      return sendFailure(res, 502, 'El servicio de IA no pudo procesar la pregunta.');
+      return localAnswer();
     }
 
     let providerData;
@@ -602,14 +604,14 @@ function createApp(db = openDatabase(), { fetchImpl = globalThis.fetch } = {}) {
       providerData = await providerResponse.json();
     } catch (error) {
       console.error('AI provider returned an invalid response:', error);
-      return sendFailure(res, 502, 'El servicio de IA devolvió una respuesta inválida.');
+      return localAnswer();
     }
     const content = providerData?.choices?.[0]?.message?.content;
     let answer;
     try {
       answer = JSON.parse(content);
     } catch {
-      return sendFailure(res, 502, 'El servicio de IA no devolvió un JSON válido.');
+      return localAnswer();
     }
     if (
       !answer
@@ -622,7 +624,7 @@ function createApp(db = openDatabase(), { fetchImpl = globalThis.fetch } = {}) {
       ))
       || typeof answer.siguientePregunta !== 'string'
     ) {
-      return sendFailure(res, 502, 'El servicio de IA devolvió un JSON con formato inesperado.');
+      return localAnswer();
     }
     return res.json({
       success: true,
