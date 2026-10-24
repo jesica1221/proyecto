@@ -19,24 +19,25 @@ OUTPUT = ROOT / "DOCUMENTACION-COMPLETA-EFFICIENT-PARKING.docx"
 DIAGRAMS = ROOT / "docs" / "diagramas"
 EVIDENCE = ROOT / "docs" / "evidencias"
 CURRENT_STATUS = (
-    "Estado comprobado el 23 de octubre de 2026: existe el App Service "
-    "efficient-parking-3126533e en Azure, pero el último despliegue terminó "
-    "con HTTP 502 en Kudu y /health devolvió HTTP 503. La URL no debe "
-    "presentarse como disponible hasta recuperar el servicio y repetir las "
-    "pruebas. El plan actual se cambió a B1 y puede generar cargos. El APK "
-    "existe como release, pero no se ha probado en un teléfono físico. "
-    "El asistente IA requiere AI_API_KEY."
+    "Estado comprobado el 23 de octubre de 2026 tras redesplegar: el App Service "
+    "efficient-parking-3126533e en Azure responde 200 en /health, / , /login y "
+    "/student; la web ya no apunta a localhost; el login de administración "
+    "devuelve token y /api/dashboard/overview responde 200. Una falla previa "
+    "(Cannot find module 'dotenv' en arranques en frío) se resolvió al "
+    "redesplegar. El plan es B1 y puede generar cargos. El APK existe como "
+    "release, pero no se ha probado en un teléfono físico. El asistente IA "
+    "responde 503 con sesión mientras no se configure AI_API_KEY."
 )
 OLD_STATUS = {
     "El intento anterior de crear el servicio gratuito en Azure terminó con el sitio deshabilitado por `QuotaExceeded`; Azure devolvió “Site Disabled”. La web y la API **no están publicadas de manera funcional** y no se produjo un APK. La cuenta de prueba mencionada en el historial anterior reside en una base local, ignorada por Git, no en una base de datos pública. No presentar el sitio como desplegado ni distribuir una dirección como si estuviera activa.":
         CURRENT_STATUS,
-    "Implementado para desarrollo local; Azure no está operativo": "La arquitectura existe; el servicio de Azure no respondió en la última comprobación",
-    "Pendiente: la instancia Azure quedó `QuotaExceeded`": "Recursos creados; el último despliegue falló con Kudu HTTP 502",
-    "Pendientes: no hay URL operativa ni APK generado en este estado": "URL y APK publicados; la disponibilidad de Azure y la instalación en teléfono no están verificadas",
+    "Implementado para desarrollo local; Azure no está operativo": "Implementado y desplegado en Azure; /health responde 200 tras el redespliegue",
+    "Pendiente: la instancia Azure quedó `QuotaExceeded`": "Desplegado en Azure; verificado /health, login de administración y dashboard",
+    "Pendientes: no hay URL operativa ni APK generado en este estado": "URL y APK publicados; la instalación del APK en teléfono no está verificada",
     "Azure muestra Site Disabled/QuotaExceeded. No insistir con despliegues idénticos ni escoger plan de pago. Confirmar cuota con Azure; el sitio no es un servicio público mientras siga deshabilitado.":
-        "Azure devolvió HTTP 502 en el último despliegue y HTTP 503 en /health. Revisar Kudu y costos antes de repetir; no declarar disponibilidad hasta que pasen las pruebas públicas.",
+        "Azure respondió 200 tras redesplegar. El plan B1 puede generar costo; revisar Cost Management y repetir las pruebas de salud antes de presentar.",
     "¿El proyecto ya está en Azure? Se intentó publicar con App Service F1 en Mexico Central, pero Azure deshabilitó el sitio por cuota (`QuotaExceeded`). No existe una URL operativa confirmada ni APK generado en este estado.":
-        "¿El proyecto ya está en Azure? Existe la URL https://efficient-parking-3126533e.azurewebsites.net, pero el último despliegue falló con HTTP 502 y /health devolvió HTTP 503. El APK está publicado, sin prueba de instalación física.",
+        "¿El proyecto ya está en Azure? Sí: https://efficient-parking-3126533e.azurewebsites.net respondió 200 en /health, /login y el dashboard tras redesplegar. El APK está publicado, sin prueba de instalación física.",
 }
 forbidden_status_fragments = (
     "La cuenta es Azure for Students y la región México Central se eligió dentro de las regiones permitidas.",
@@ -44,6 +45,19 @@ forbidden_status_fragments = (
 
 
 def replace_status(text: str) -> str:
+    previous = {
+        "La arquitectura existe; el servicio de Azure no respondió en la última comprobación": "Implementado y desplegado en Azure; /health responde 200 tras el redespliegue",
+        "Recursos creados; el último despliegue falló con Kudu HTTP 502": "Desplegado en Azure; verificado /health, login de administración y dashboard",
+        "URL y APK publicados; la disponibilidad de Azure y la instalación en teléfono no están verificadas": "URL y APK publicados; la instalación del APK en teléfono no está verificada",
+    }
+    if text in previous:
+        return previous[text]
+    if text.startswith("Estado comprobado el 23 de octubre de 2026: existe el App Service"):
+        return CURRENT_STATUS
+    if text.startswith("Azure devolvió HTTP 502 en el último despliegue"):
+        return "Azure respondió 200 tras redesplegar. El plan B1 puede generar costo; revisar Cost Management y repetir las pruebas de salud antes de presentar."
+    if text.startswith("¿El proyecto ya está en Azure? Existe la URL"):
+        return "¿El proyecto ya está en Azure? Sí: https://efficient-parking-3126533e.azurewebsites.net respondió 200 en /health, /login y el dashboard tras redesplegar. El APK está publicado, sin prueba de instalación física."
     for old, new in OLD_STATUS.items():
         text = text.replace(old, new)
     if "QuotaExceeded" in text or "Site Disabled" in text:
@@ -457,7 +471,7 @@ def add_current_status(document) -> None:
     add_body(document, "Eficient Parking Lot es un prototipo para que estudiantes consulten cupos y gestionen reservas, mientras los equipos de seguridad y administración coordinan ocupación, visitantes y seguimiento. La aplicación comparte una API HTTP de Node.js/Express entre el cliente Expo para web y Android. El servidor aplica autenticación y permisos y utiliza SQLite como persistencia.")
     add_body(document, "El dominio sembrado incluye cinco zonas y 125 espacios: Administrativa (25), Biblioteca (20), Auditorio (20), Cafetería (30) y Laboratorios (30). Las tres primeras admiten automóviles y las dos restantes motocicletas. Los datos de la base local usados en las capturas son sintéticos y no describen demanda universitaria real.")
     add_table(document, ["Elemento", "Estado observado", "Límite de la evidencia"], [
-        ["Azure App Service", "Existe la URL efficient-parking-3126533e.azurewebsites.net; último despliegue HTTP 502 y /health HTTP 503.", "No declarar disponibilidad hasta restablecer y volver a probar."],
+        ["Azure App Service", "URL efficient-parking-3126533e.azurewebsites.net; tras el redespliegue /health, /login y /student responden 200.", "Plan B1 con posible costo; sin alta disponibilidad."],
         ["Plan", "La instancia se cambió de F1 a B1.", "B1 puede generar cargos; revisar Azure Cost Management."],
         ["APK", "Release apk-latest disponible en GitHub.", "No se instaló en un teléfono físico; API pública no está disponible ahora."],
         ["Dashboard", "Métricas, tendencia 14 días y desglose por zona/rol en el código.", "La evidencia visual usa datos locales sintéticos."],
@@ -641,7 +655,7 @@ def main() -> None:
 
     add_chapter(document, "3. Actores y requisitos funcionales", [
         "Los roles son una decisión de servidor, no solo una condición de navegación. La cuenta administrativa puede acceder al dashboard; seguridad puede consultar espacios, verificar códigos y realizar asignaciones; el estudiante consulta zonas compatibles, gestiona su propia reserva y ve su historial. Los visitantes se representan como usuarios internos creados desde el flujo de seguridad y no tienen acceso de inicio de sesión pública.",
-        "Los requisitos se consideran cubiertos por código y pruebas locales cuando existe una ruta que implementa la conducta. La disponibilidad de un requisito en el sitio público depende además del estado del servicio, que en la última comprobación devolvió HTTP 503. Esta separación evita llamar funcional a un módulo que no se puede alcanzar en el entorno de despliegue.",
+        "Los requisitos se consideran cubiertos por código y pruebas locales cuando existe una ruta que implementa la conducta. La disponibilidad de un requisito en el sitio público depende además del estado del servicio, que el 23 de octubre de 2026 respondió correctamente tras un redespliegue (health, login de administración y dashboard). Se mantiene la distinción entre lo probado localmente, lo probado en Azure y lo no probado (APK en teléfono, asistente IA sin clave).",
     ], table=(["ID", "Requisito funcional", "Rol", "Criterio observable"], [
         ["RF-01", "Iniciar sesión con cédula y contraseña", "Todos", "Token válido y navegación según rol"],
         ["RF-02", "Crear una cuenta de estudiante", "Estudiante", "Validar placa, contraseña y aceptación de términos"],
@@ -672,7 +686,7 @@ def main() -> None:
         ["RNF-04", "Compatibilidad", "Expo para Android y navegador; API compartida"],
         ["RNF-05", "Mantenibilidad", "Separación de pantallas, configuración, API y persistencia"],
         ["RNF-06", "Privacidad", "Datos sintéticos en evidencia; no distribuir credenciales"],
-        ["RNF-07", "Disponibilidad", "No verificada en Azure: última respuesta HTTP 503"],
+        ["RNF-07", "Disponibilidad", "Verificada puntualmente en Azure (HTTP 200); sin SLA para producción"],
         ["RNF-08", "Rendimiento", "Sin prueba de carga ni concurrencia multiinstancia"],
     ]))
 
@@ -808,7 +822,7 @@ def main() -> None:
         ["npx tsc --noEmit", "Sin errores en validación previa", "Chequeo estático del frontend"],
         ["npm run lint", "0 errores; existían warnings", "Reglas ESLint del repositorio"],
         ["npx expo export --platform web", "Correcto tras cambio de URL", "Bundle local contiene URL relativa"],
-        ["GET /health Azure", "HTTP 503 en última comprobación", "El servicio público requiere recuperación"],
+        ["GET /health Azure", "HTTP 200 tras el redespliegue", "Repetir antes de cada presentación"],
         ["APK en Android físico", "No probado", "Pendiente de instalación y recorrido completo"],
     ]))
     add_table(document, ["Caso", "Preparación", "Resultado esperado"], [
@@ -829,7 +843,7 @@ def main() -> None:
 
     add_chapter(document, "18. Despliegue, APK y operación", [
         "El script Azure crea o reutiliza grupo y plan, genera secreto JWT y credenciales de bootstrap, exporta Expo Web, prepara el paquete de backend y web, configura app settings e inicia despliegue ZIP. Tras validar API y login elimina los valores temporales de bootstrap de la configuración. El paquete no copia la SQLite local.",
-        "La instancia pública se llama `efficient-parking-3126533e`; su URL es https://efficient-parking-3126533e.azurewebsites.net. La región es México Central y el plan existente se cambió a B1 después de una cuota F1 agotada. En el último intento, Kudu devolvió HTTP 502 y `/health` respondió 503; revisar logs y facturación en Azure antes de nuevos intentos. El nombre del grupo `rg-efficient-parking-free-mx` es histórico y no prueba que el recurso no tenga costo.",
+        "La instancia pública se llama `efficient-parking-3126533e`; su URL es https://efficient-parking-3126533e.azurewebsites.net. La región es México Central y el plan existente se cambió a B1 después de una cuota F1 agotada. Un despliegue previo falló con Kudu 502 y arranques en frío con `Cannot find module 'dotenv'`; el redespliegue con el script del repositorio lo resolvió y `/health` responde 200. Revisar facturación en Azure. El nombre del grupo `rg-efficient-parking-free-mx` es histórico y no prueba que el recurso no tenga costo.",
         "El workflow Android instala dependencias, genera el proyecto nativo con Expo prebuild, compila el APK release con Gradle, sube el artefacto y publica la release `apk-latest`. La variable de URL API se establece para el servidor Azure. La compilación correcta acredita que el artefacto fue generado, no que se haya instalado ni que el backend esté disponible.",
         "El runbook de recuperación comienza por comprobar estado de App Service, plan y costo; consultar los registros de despliegue; verificar la estructura del ZIP y buscar `localhost` en el bundle; desplegar cuando exista autorización de costo; y probar salud, login, rutas protegidas, persistencia y conexión móvil. Una prueba que falla debe quedar registrada con fecha y código HTTP, no transformarse en una afirmación de éxito.",
     ], table=(["Componente", "Ubicación", "Comprobación"], [
@@ -849,7 +863,7 @@ def main() -> None:
     ])
 
     add_chapter(document, "20. Limitaciones, riesgos y plan de mejora", [
-        "La disponibilidad pública no está confirmada, la pantalla web de Azure tuvo una configuración anterior con localhost, y el despliegue de la corrección terminó en HTTP 502. El servicio de IA no está activo por ausencia de clave y recuperación de contraseña está deliberadamente deshabilitada. El plan B1 puede tener costo; su permanencia requiere revisar presupuesto.",
+        "La disponibilidad en Azure se comprobó de forma puntual y no está garantizada; hubo una configuración anterior con localhost y fallas de arranque ya corregidas, y el APK no se ha probado en teléfono. El servicio de IA no está activo por ausencia de clave y recuperación de contraseña está deliberadamente deshabilitada. El plan B1 puede tener costo; su permanencia requiere revisar presupuesto.",
         "SQLite y App Service en una sola instancia simplifican la demostración, pero no satisfacen continuidad de negocio ni concurrencia alta. No hay evidencia de copias de seguridad restauradas, monitorización de alertas, rotación programada de secretos ni una prueba de desastre. El QR contiene datos identificables y debería migrar a un código opaco.",
         "Las mejoras priorizadas son recuperar y verificar el sitio sin publicar credenciales; hacer instalación Android y prueba guiada en teléfono; añadir configuración segura de IA si el requisito académico lo exige; endurecer CORS y observabilidad; diseñar recuperación de contraseña; y revisar si conviene sustituir SQLite por una base administrada antes de aumentar escala.",
     ], table=(["Prioridad", "Mejora", "Criterio de cierre"], [
@@ -901,7 +915,7 @@ def main() -> None:
         ["Hay más de ocho funciones", "Pantallas y endpoints implementados; pruebas de API para flujos clave", "Que todos los flujos estén disponibles en Azure ahora"],
         ["Existe APK", "Artefacto publicado por workflow en GitHub", "Que se haya instalado o probado en teléfono físico"],
         ["Hay dashboard exploratorio", "Métricas y gráficos implementados; captura local con datos sintéticos", "Que los datos midan la demanda universitaria real"],
-        ["Hay despliegue Azure", "Recursos App Service y URL asignada", "Que el servicio responda: último health 503"],
+        ["Hay despliegue Azure", "Recursos App Service y URL asignada", "Que el servicio respondió 200 el 23/10/2026; sin garantía continua"],
         ["Existe asistente IA", "Cliente y endpoint con contrato JSON", "Que el proveedor esté activo sin AI_API_KEY"],
     ])
     add_body(document, "Este registro ayuda a presentar resultados con precisión. Una capacidad implementada en código puede ser una evidencia del prototipo sin que eso implique disponibilidad en nube, uso por población real o pruebas de dispositivo.")

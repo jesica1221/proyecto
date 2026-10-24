@@ -40,7 +40,7 @@ Las funcionalidades se ejecutan localmente cuando la API está iniciada y los cl
 
 ### Estado de la entrega en la nube — verificado el 23 de octubre de 2026
 
-Existe un Azure App Service Linux llamado `efficient-parking-3126533e` y la URL asignada es https://efficient-parking-3126533e.azurewebsites.net. En una comprobación anterior respondieron `/health`, `/login` y la API; después de detectar que una exportación web usaba `localhost:4000`, se corrigió el valor predeterminado de producción y `npx expo export --platform web` generó una URL relativa al mismo origen. Sin embargo, el último intento de desplegar esa corrección terminó con HTTP 502 en Kudu y la última comprobación pública de `/health` devolvió HTTP 503. **La web y la API no están disponibles ahora mismo; no presentar la URL como operativa hasta restaurar el servicio y probar de nuevo.**
+Existe un Azure App Service Linux llamado `efficient-parking-3126533e` y la URL asignada es https://efficient-parking-3126533e.azurewebsites.net. En una comprobación anterior respondieron `/health`, `/login` y la API; después de detectar que una exportación web usaba `localhost:4000`, se corrigió el valor predeterminado de producción y `npx expo export --platform web` generó una URL relativa al mismo origen. Sin embargo, el primer intento de desplegar esa corrección terminó con HTTP 502 en Kudu, y los arranques en frío fallaron con `Cannot find module 'dotenv'`. Tras redesplegar con `deploy\azure-free.ps1`, el 23 de octubre de 2026 `/health`, `/`, `/login` y `/student` respondieron 200, el bundle ya no contiene `localhost:4000`, el login de administración devolvió token y `/api/dashboard/overview` respondió 200. **La web y la API están operativas en la última comprobación; repetir `/health` antes de cada presentación.**
 
 El plan de App Service fue cambiado de F1 a B1 después de que F1 agotara su cuota. B1 puede generar cargos según la suscripción; revisa Azure Cost Management antes de dejarlo activo y no asumas que es gratuito. La instancia carece de una garantía de servicio apropiada para producción y SQLite continúa siendo una opción de prototipo de una sola instancia. El APK `eficient-parking.apk` está publicado en la release `apk-latest` de GitHub, pero no se ha instalado ni probado en un teléfono físico. El asistente IA devuelve 503 si no se configura `AI_API_KEY` en el entorno del servidor.
 
@@ -48,11 +48,11 @@ El plan de App Service fue cambiado de F1 a B1 después de que F1 agotara su cuo
 
 | Requisito solicitado | Evidencia en el proyecto | Situación |
 |---|---|---|
-| Prototipo con ocho o más funcionalidades | Flujos de registro, sesión, reserva, cancelación, QR, seguridad, visitantes, historial, perfil y análisis | El código y las pruebas locales contienen más de ocho; la disponibilidad pública está bloqueada mientras Azure responda 503 |
-| Web y móvil con base compartida | El mismo backend Express administra SQLite y sirve la web exportada | Arquitectura implementada; la URL de Azure existe, pero el servicio no respondió en la última comprobación |
+| Prototipo con ocho o más funcionalidades | Flujos de registro, sesión, reserva, cancelación, QR, seguridad, visitantes, historial, perfil y análisis | El código y las pruebas locales contienen más de ocho; verificado también en Azure (login y dashboard) |
+| Web y móvil con base compartida | El mismo backend Express administra SQLite y sirve la web exportada | Arquitectura implementada; la URL de Azure respondió 200 el 23/10/2026 |
 | Móvil consumiendo API | `fetch` en las pantallas y URL de API configurada en el build Android | El workflow publica un APK; la instalación y el flujo móvil en dispositivo no han sido comprobados |
 | Análisis exploratorio con dashboard | Métricas, tendencias de 14 días, estados, horas pico, uso por zona y rol | Código implementado y visualizado; las capturas de evidencia usan una base local con datos sintéticos |
-| Despliegue en la nube | App Service Linux y script de Azure | Recursos creados; último despliegue falló con Kudu HTTP 502 y `/health` devolvió 503 |
+| Despliegue en la nube | App Service Linux y script de Azure | Desplegado; tras un 502 inicial, el redespliegue dejó `/health` en 200 |
 | URL pública y APK | URL `azurewebsites.net` y release `apk-latest` | Ambos artefactos existen; no declarar disponibilidad funcional hasta que el sitio responda y el APK se pruebe en teléfono |
 
 ## 2. Mapa de arquitectura
@@ -360,7 +360,7 @@ El script `deploy/azure-free.ps1` automatiza el proceso con Azure CLI: generar i
 
 ### Situación conocida
 
-La URL asignada es https://efficient-parking-3126533e.azurewebsites.net, en el grupo `rg-efficient-parking-free-mx`, región México Central. La exportación más reciente se probó localmente y ya usa `/eficient-parking-lot` como URL relativa de producción; no incluye `localhost:4000`. El intento de subirla terminó con Kudu HTTP 502 y la última lectura de `/health` dio HTTP 503. Esta discrepancia exige revisar los registros de despliegue y restaurar el servicio antes de afirmar que la corrección está en la nube. El panel Azure permite cambiar de plan y comprobar cargos; el nombre histórico del grupo no demuestra que el plan actual sea gratis.
+La URL asignada es https://efficient-parking-3126533e.azurewebsites.net, en el grupo `rg-efficient-parking-free-mx`, región México Central. La exportación más reciente usa `/eficient-parking-lot` como URL relativa de producción y no incluye `localhost:4000`; tras redesplegar, el servicio respondió 200 en `/health` y sirve ese bundle. El panel Azure permite cambiar de plan y comprobar cargos; el nombre histórico del grupo no demuestra que el plan actual sea gratis.
 
 ### Lista segura antes de reintentar
 
@@ -505,7 +505,7 @@ Ejecuta tests, lint, type-check y exportación web; aprende variables de entorno
 
 **¿El QR demuestra identidad criptográficamente?** No. La interfaz construye texto identificable; el servidor valida que exista reserva activa al consultar con una sesión autorizada. Conviene reemplazar los datos personales del QR por un token aleatorio opaco.
 
-**¿El proyecto ya está en Azure?** Existe una URL y recursos de App Service, pero el último despliegue falló con HTTP 502 y `/health` devolvió HTTP 503. No hay disponibilidad pública confirmada en este momento.
+**¿El proyecto ya está en Azure?** Sí: `/health`, el login de administración y el dashboard respondieron correctamente el 23 de octubre de 2026 tras redesplegar. Sin garantía de disponibilidad continua (plan B1, SQLite de una instancia).
 
 **¿Qué no está listo para producción?** Despliegue funcional, base de datos administrada/backup, recuperación de contraseña con verificación, revisión de privacidad/QR, restricciones CORS, observabilidad, pruebas ampliadas y operación/soporte.
 
@@ -570,7 +570,7 @@ Ejecuta tests, lint, type-check y exportación web; aprende variables de entorno
 
 ### Pendientes verificables antes de afirmar “entrega completa”
 
-1. Restaurar Azure tras el último error Kudu 502 y comprobar que `/health` ya no responde 503.
+1. Repetir la comprobación de `/health` en Azure antes de presentar; si falla, revisar los registros de arranque.
 2. Confirmar el costo de B1 en Azure Cost Management; el nombre histórico “free” del grupo no significa que el plan sea gratuito.
 3. Probar el login, las reservas y el dashboard en el sitio una vez restablecido.
 4. Instalar el APK de la release `apk-latest` en Android físico y verificar cámara, QR, conectividad y reserva.
