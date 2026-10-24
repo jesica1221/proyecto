@@ -8,6 +8,11 @@ on:
       - '.github/workflows/build-apk.yml'
       - 'package.json'
       - 'app.json'
+      - 'app/**'
+      - 'constants/**'
+      - 'components/**'
+      - 'store/**'
+      - 'types/**'
 
 permissions:
   contents: write
