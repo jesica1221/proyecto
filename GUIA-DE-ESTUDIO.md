@@ -36,24 +36,24 @@ El dominio inicial tiene cinco zonas y 125 espacios: Administrativa (25), Biblio
 - Historial, edición de perfil y dashboard de ocupación para administración.
 - Exportación estática web y pruebas de integración de los recorridos principales.
 
-Las funcionalidades se ejecutan localmente cuando la API está iniciada y los clientes apuntan a ella. Tener el código no significa que haya un sitio en producción, una base de datos en la nube o un APK publicado.
+Las funcionalidades se ejecutan localmente cuando la API está iniciada y los clientes apuntan a ella. Tener el código no significa que todos los flujos estén disponibles en producción. La evidencia de esta versión distingue entre funcionamiento local, existencia de recursos en Azure y disponibilidad pública comprobada.
 
-### Estado honesto de la entrega en la nube
+### Estado de la entrega en la nube — verificado el 23 de octubre de 2026
 
-El intento anterior de crear el servicio gratuito en Azure terminó con el sitio deshabilitado por `QuotaExceeded`; Azure devolvió “Site Disabled”. La web y la API **no están publicadas de manera funcional** y no se produjo un APK. La cuenta de prueba mencionada en el historial anterior reside en una base local, ignorada por Git, no en una base de datos pública. No presentar el sitio como desplegado ni distribuir una dirección como si estuviera activa.
+Existe un Azure App Service Linux llamado `efficient-parking-3126533e` y la URL asignada es https://efficient-parking-3126533e.azurewebsites.net. En una comprobación anterior respondieron `/health`, `/login` y la API; después de detectar que una exportación web usaba `localhost:4000`, se corrigió el valor predeterminado de producción y `npx expo export --platform web` generó una URL relativa al mismo origen. Sin embargo, el último intento de desplegar esa corrección terminó con HTTP 502 en Kudu y la última comprobación pública de `/health` devolvió HTTP 503. **La web y la API no están disponibles ahora mismo; no presentar la URL como operativa hasta restaurar el servicio y probar de nuevo.**
 
-El plan F1 descrito por el repositorio es gratuito y limitado, sin SLA, adecuado para aprendizaje y demostración, no para producción. No se debe cambiar a un plan de pago sin autorización explícita. Antes de reintentar se necesita que Azure resuelva la cuota y confirme que el plan gratuito puede activarse.
+El plan de App Service fue cambiado de F1 a B1 después de que F1 agotara su cuota. B1 puede generar cargos según la suscripción; revisa Azure Cost Management antes de dejarlo activo y no asumas que es gratuito. La instancia carece de una garantía de servicio apropiada para producción y SQLite continúa siendo una opción de prototipo de una sola instancia. El APK `eficient-parking.apk` está publicado en la release `apk-latest` de GitHub, pero no se ha instalado ni probado en un teléfono físico. El asistente IA devuelve 503 si no se configura `AI_API_KEY` en el entorno del servidor.
 
 ### Requisitos académicos y situación
 
 | Requisito solicitado | Evidencia en el proyecto | Situación |
 |---|---|---|
-| Prototipo funcional con mínimo ocho funcionalidades | Los flujos de usuario, administración y seguridad descritos arriba; las pruebas cubren varios flujos de API | Implementado parcialmente y demostrable en local; validar cada flujo antes de prometerlo |
-| Web y móvil conectados a una base común | Expo Web/Android consultan la API; el backend usa SQLite | Implementado para desarrollo local; Azure no está operativo |
-| Móvil consumiendo API del backend | `fetch` en las pantallas y rutas en `backend/server.cjs` | Implementado |
-| Análisis exploratorio visualizado en dashboard | Métricas por zona, eventos por hora y demanda por tipo de vehículo | Dashboard funcional para administrador; es un tablero operativo básico, no un análisis estadístico exhaustivo |
-| Despliegue en Azure/AWS/similar | Script `deploy/azure-free.ps1` y despliegue intentado en Azure | Pendiente: la instancia Azure quedó `QuotaExceeded` |
-| Enlace público y APK | El script intenta publicar la web; EAS define perfil APK | Pendientes: no hay URL operativa ni APK generado en este estado |
+| Prototipo con ocho o más funcionalidades | Flujos de registro, sesión, reserva, cancelación, QR, seguridad, visitantes, historial, perfil y análisis | El código y las pruebas locales contienen más de ocho; la disponibilidad pública está bloqueada mientras Azure responda 503 |
+| Web y móvil con base compartida | El mismo backend Express administra SQLite y sirve la web exportada | Arquitectura implementada; la URL de Azure existe, pero el servicio no respondió en la última comprobación |
+| Móvil consumiendo API | `fetch` en las pantallas y URL de API configurada en el build Android | El workflow publica un APK; la instalación y el flujo móvil en dispositivo no han sido comprobados |
+| Análisis exploratorio con dashboard | Métricas, tendencias de 14 días, estados, horas pico, uso por zona y rol | Código implementado y visualizado; las capturas de evidencia usan una base local con datos sintéticos |
+| Despliegue en la nube | App Service Linux y script de Azure | Recursos creados; último despliegue falló con Kudu HTTP 502 y `/health` devolvió 503 |
+| URL pública y APK | URL `azurewebsites.net` y release `apk-latest` | Ambos artefactos existen; no declarar disponibilidad funcional hasta que el sitio responda y el APK se pruebe en teléfono |
 
 ## 2. Mapa de arquitectura
 
@@ -125,7 +125,7 @@ En local, la web y Android pueden compartir el mismo proceso de API y el mismo a
 | `eas.json` | Perfiles de compilación EAS | Perfil `preview` interno en APK y perfil de producción |
 | `.env.example` | Variables documentadas | URL pública/local, puerto, base, JWT y claves opcionales |
 | `deploy/azure-free.ps1` | Automatización del despliegue | Exportar web, preparar paquete, configurar App Service F1 y comprobar URL |
-| `README.md` | Inicio rápido y notas del proyecto | Comandos de desarrollo, validación y límites del plan gratuito |
+| `README.md` | Inicio rápido y notas del proyecto | Comandos de desarrollo, validación y estado del servicio |
 
 ### Código activo frente a código de demostración heredado
 
@@ -356,24 +356,24 @@ La disponibilidad de EAS, el plan de cuenta, credenciales de firma y políticas 
 
 ## 9. Despliegue en Azure y límites reales
 
-El script `deploy/azure-free.ps1` intenta automatizar el proceso con Azure CLI: generar identificadores/secreto aleatorios, exportar la web, preparar zip, crear grupo y App Service Plan F1 en Mexico Central, configurar variables, desplegar, comprobar `/health` y `/login`, retirar secretos bootstrap de app settings e iniciar sesión de validación. No copia la base local ni cuentas demo. El script necesita CLI, sesión con suscripción activa, cuota F1 disponible y permisos para recursos.
+El script `deploy/azure-free.ps1` automatiza el proceso con Azure CLI: generar identificadores y secretos, exportar la web, preparar el paquete, crear el grupo y App Service Plan si faltan, configurar variables, desplegar, comprobar `/health` y `/login`, retirar los valores de bootstrap de app settings y validar el inicio de sesión administrativo. No copia la base local ni cuentas demo. El script necesita CLI, una suscripción activa y permisos para los recursos. Aunque el nombre y los valores por defecto del script aluden a F1, la instancia existente se cambió a B1 y puede facturar.
 
 ### Situación conocida
 
-La cuenta es Azure for Students y la región México Central se eligió dentro de las regiones permitidas. Azure permitió crear recursos, pero el sitio terminó deshabilitado como `QuotaExceeded`. Es un bloqueo del proveedor, no evidencia de que la API ya esté disponible. Volver a lanzar el script antes de que Azure libere cuota puede crear recursos parcialmente configurados o repetir el error.
+La URL asignada es https://efficient-parking-3126533e.azurewebsites.net, en el grupo `rg-efficient-parking-free-mx`, región México Central. La exportación más reciente se probó localmente y ya usa `/eficient-parking-lot` como URL relativa de producción; no incluye `localhost:4000`. El intento de subirla terminó con Kudu HTTP 502 y la última lectura de `/health` dio HTTP 503. Esta discrepancia exige revisar los registros de despliegue y restaurar el servicio antes de afirmar que la corrección está en la nube. El panel Azure permite cambiar de plan y comprobar cargos; el nombre histórico del grupo no demuestra que el plan actual sea gratis.
 
 ### Lista segura antes de reintentar
 
-1. Comprobar portal Azure y soporte/administrador universitario para conocer cuota y recursos existentes.
-2. Verificar que App Service F1 sea permitido en la suscripción/región.
-3. Confirmar que no se requiere pagar, escalar ni crear recursos adicionales facturables; detenerse si aparece un costo.
-4. Confirmar permisos, CLI y suscripción seleccionada.
-5. Revisar configuración y script vigentes, y evitar copiar una SQLite que contenga datos personales.
-6. Ejecutar solo tras confirmar que el sitio no está deshabilitado y que el servicio puede iniciarse.
-7. Probar `/health`, `/login`, alta controlada, conexión desde web y Android y persistencia tras reinicio.
-8. Verificar logs, reinicio, backups y uso de cuota; guardar la URL real y estado comprobado.
+1. Revisar el estado de App Service y el plan actual en Azure Portal; comprobar Cost Management antes de mantener B1.
+2. Consultar el despliegue más reciente y los registros de Kudu, sin copiar contraseñas o secretos a documentos.
+3. Confirmar que el paquete raíz incluya `backend`, `dist`, `package.json` y `package-lock.json`.
+4. Confirmar que el bundle no contiene `localhost:4000` antes de cargarlo.
+5. Desplegar solo si la suscripción permite el costo y el servicio puede arrancar.
+6. Probar `/health`, `/login`, el login por API, el dashboard autenticado y las rutas de reserva.
+7. Descargar la aplicación Android desde una fuente controlada, instalarla en dispositivo y probar conectividad, permisos de cámara, reserva, validación QR y cierre de sesión.
+8. Comprobar persistencia de SQLite después de reiniciar la app y dejar registrado el resultado con fecha.
 
-F1 tiene cuotas y recursos compartidos; no hay SLA. Por ello es una solución de aprendizaje/demo con disponibilidad no garantizada. Si no hay cuota gratuita, las opciones seguras son solicitar habilitación a Azure/universidad o usar otra plataforma con nivel gratuito real, tras revisar límites y condiciones. Nunca convertir a un plan de pago por cuenta propia.
+Los planes de App Service tienen disponibilidad y costos sujetos a sus condiciones y región; una URL asignada no demuestra que el proceso esté sano. La instancia de base SQLite es adecuada para un prototipo de una sola instancia, no para alta concurrencia ni recuperación ante desastres.
 
 ## 10. Seguridad, privacidad y confiabilidad
 
@@ -422,7 +422,7 @@ Utiliza cuentas ficticias y matrículas de prueba. Obtén permiso institucional 
 
 **Recuperación de contraseña da error.** Es esperado: ambos endpoints devuelven `503` hasta integrar verificación segura.
 
-**Azure muestra Site Disabled/QuotaExceeded.** No insistir con despliegues idénticos ni escoger plan de pago. Confirmar cuota con Azure; el sitio no es un servicio público mientras siga deshabilitado.
+**Azure devuelve 502/503.** Revisa Kudu y los registros de inicio, confirma el plan y sus costos en Cost Management, y valida el contenido del paquete. No marques la URL como disponible hasta que `/health`, el login web y una solicitud autenticada funcionen.
 
 **Lint informa warnings.** Distingue warning de error. Corrige warnings ligados a un cambio, pero no los mezcles con cambios de funciones ajenas sin necesidad.
 
@@ -505,13 +505,13 @@ Ejecuta tests, lint, type-check y exportación web; aprende variables de entorno
 
 **¿El QR demuestra identidad criptográficamente?** No. La interfaz construye texto identificable; el servidor valida que exista reserva activa al consultar con una sesión autorizada. Conviene reemplazar los datos personales del QR por un token aleatorio opaco.
 
-**¿El proyecto ya está en Azure?** Se intentó publicar con App Service F1 en Mexico Central, pero Azure deshabilitó el sitio por cuota (`QuotaExceeded`). No existe una URL operativa confirmada ni APK generado en este estado.
+**¿El proyecto ya está en Azure?** Existe una URL y recursos de App Service, pero el último despliegue falló con HTTP 502 y `/health` devolvió HTTP 503. No hay disponibilidad pública confirmada en este momento.
 
 **¿Qué no está listo para producción?** Despliegue funcional, base de datos administrada/backup, recuperación de contraseña con verificación, revisión de privacidad/QR, restricciones CORS, observabilidad, pruebas ampliadas y operación/soporte.
 
 **¿Qué significa dashboard en vivo aquí?** El cliente pide datos agregados al backend cada cinco segundos. Es actualización periódica (polling), no transmisión instantánea por WebSocket; las métricas solo reflejan lo que registra SQLite.
 
-**¿Por qué SQLite?** Es sencilla, gratuita y suficiente para prototipo pequeño; la instancia F1 y el archivo SQLite no son una solución de disponibilidad o escalamiento para producción.
+**¿Por qué SQLite?** Es sencilla y suficiente para un prototipo pequeño de una instancia. El archivo SQLite no ofrece por sí solo alta disponibilidad, replicación ni escalamiento para producción.
 
 ## 15. Glosario
 
@@ -568,13 +568,15 @@ Ejecuta tests, lint, type-check y exportación web; aprende variables de entorno
 - [ ] No se incluyeron `.env`, bases locales, contraseñas, JWT ni claves en Git.
 - [ ] Se distinguieron características implementadas, mock, pendientes y no disponibles.
 
-### Bloqueos actuales que requieren resolución antes de afirmar “entrega completa”
+### Pendientes verificables antes de afirmar “entrega completa”
 
-1. Azure debe permitir activar un plan gratuito: el sitio anterior quedó deshabilitado por `QuotaExceeded`.
-2. Se debe desplegar y verificar una URL pública real sin pasar a recursos pagados sin permiso.
-3. Se debe compilar y probar un APK apuntando a esa URL pública.
-4. La recuperación de contraseña requiere un método de verificación seguro; mientras tanto está deliberadamente deshabilitada.
-5. La entrega académica debe confirmar si el dashboard operativo actual satisface el alcance de análisis exploratorio solicitado o si se necesita un informe de datos adicional.
+1. Restaurar Azure tras el último error Kudu 502 y comprobar que `/health` ya no responde 503.
+2. Confirmar el costo de B1 en Azure Cost Management; el nombre histórico “free” del grupo no significa que el plan sea gratuito.
+3. Probar el login, las reservas y el dashboard en el sitio una vez restablecido.
+4. Instalar el APK de la release `apk-latest` en Android físico y verificar cámara, QR, conectividad y reserva.
+5. Configurar `AI_API_KEY` en el entorno, si el requisito académico exige respuestas reales del proveedor; sin ella la API devuelve 503.
+6. La recuperación de contraseña devuelve 503 hasta integrar un mecanismo de verificación seguro.
+7. Las capturas que acompañan la documentación son de una ejecución web local con datos sintéticos, no de la nube ni de una instalación nativa Android.
 
 ## 17. Referencia rápida: comandos y rutas
 
@@ -608,4 +610,4 @@ Rutas de orientación: [README.md](./README.md), [backend/server.cjs](./backend/
 
 ---
 
-**Nota de mantenimiento:** esta guía refleja el código inspeccionado al momento de su preparación. Si cambia la API, esquema, URL, proveedor, límites de Azure o configuración EAS, valida los archivos y pruebas antes de reutilizar instrucciones de despliegue. No contiene credenciales deliberadamente.
+**Nota de mantenimiento:** el estado de Azure indicado se verificó el 23 de octubre de 2026. La URL puede cambiar o volver a estar disponible; verifica `/health`, el login web y la API en el momento de entregar. Las capturas incluidas en la documentación completa se tomaron en local con datos sintéticos; no son evidencia de una instalación Android ni de disponibilidad Azure. No se incluyen credenciales deliberadamente.

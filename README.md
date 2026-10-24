@@ -4,7 +4,7 @@ Prototipo de gestión de parqueaderos para la Universidad de Cundinamarca. La ap
 
 ## Guía de estudio
 
-Consulta la [guía completa en Markdown](./GUIA-DE-ESTUDIO.md) o descarga la [versión Word](./GUIA-DE-ESTUDIO.docx) para estudiar la arquitectura, los archivos, los flujos, la API, las pruebas y el estado real del despliegue.
+Consulta la [documentación integral en Word](./DOCUMENTACION-COMPLETA-EFFICIENT-PARKING.docx), la [guía completa en Markdown](./GUIA-DE-ESTUDIO.md) o descarga la [guía de estudio en Word](./GUIA-DE-ESTUDIO.docx). La documentación integral incluye los diagramas de flujo, clases, entidad-relación y casos de uso, además de capturas de ejecución local.
 
 ## Funcionalidades implementadas
 
@@ -56,11 +56,11 @@ npm run lint
 npx expo export --platform web
 ```
 
-## Despliegue gratuito en Azure
+## Despliegue en Azure
 
-El prototipo se puede publicar en un único Azure App Service Linux con plan **F1 Free** en la región **Mexico Central**, la región cercana permitida por la suscripción Azure for Students. La misma aplicación sirve la web estática de Expo, la API y una base SQLite en `/home/data`, por lo que móvil y web usan los mismos datos. La dirección pública usa el dominio gratuito `azurewebsites.net`; no hace falta comprar un dominio.
+El prototipo se desplegó en un Azure App Service Linux en la región **Mexico Central**. La aplicación sirve la web estática de Expo, la API y una base SQLite en `/home/data`, por lo que móvil y web usan la misma API. La URL asignada es `https://efficient-parking-3126533e.azurewebsites.net`. En la última comprobación disponible el despliegue de una corrección terminó con HTTP 502 en Kudu y `/health` devolvió HTTP 503; por tanto, **no se debe presentar como disponible** hasta que pase nuevamente las pruebas de salud y login.
 
-El plan F1 no tiene costo de cómputo, pero está limitado a 60 minutos de CPU por día y 1 GB de almacenamiento compartido, no ofrece SLA y Microsoft lo recomienda para pruebas y aprendizaje, no para producción. Si se exceden las cuotas, el prototipo puede dejar de responder; este despliegue no crea recursos de pago adicionales ni añade alertas o servicios facturables. Consulta los [límites y condiciones actuales del plan gratuito](https://azure.microsoft.com/pricing/details/app-service/linux/).
+El plan de App Service existente se cambió de F1 a B1 tras agotar la cuota de F1. B1 puede tener costo: revisa Azure Cost Management y las condiciones de la suscripción antes de mantenerlo. Esta arquitectura de una instancia y SQLite es para prototipo, no para alta concurrencia ni producción crítica.
 
 Requisitos: Azure CLI, Node.js 20 o superior, dependencias instaladas en la raíz, y una suscripción Azure activa. Desde PowerShell en la raíz del repositorio:
 
@@ -69,6 +69,6 @@ az login
 .\deploy\azure-free.ps1
 ```
 
-El script crea un identificador numérico y una contraseña de administrador nuevos para la demo, crea un grupo de recursos y un plan F1, compila la web para consumir la API del mismo dominio, despliega API y web, y comprueba `/health`, `/login` y la autenticación administrativa. La contraseña se usa solo para inicializar la cuenta y se elimina de los ajustes de Azure al terminar; la cuenta permanece en la base como hash. Las credenciales se muestran una sola vez al completar el script: guárdalas. No se guardan en el repositorio. El script no copia `backend/data` ni la base local al paquete de despliegue.
+El script crea un identificador y una contraseña temporales de administrador, exporta la web para consumir la API del mismo origen, despliega API y web, y comprueba `/health`, `/login` y la autenticación administrativa. Retira los valores de bootstrap de los ajustes de Azure al terminar; la cuenta permanece en la base como hash. Las credenciales de bootstrap no se guardan en el repositorio. El script no copia `backend/data` ni la base local al paquete de despliegue.
 
-La capa gratuita está pensada para prototipos y desarrollo: una sola instancia, cuotas compartidas, sin SLA ni escalado. La base SQLite vive en el almacenamiento persistente de App Service; por el límite de instancia y almacenamiento, no es una arquitectura para alta concurrencia. No guardes información personal real en esta demostración. Para APK, compila por separado con EAS usando la URL pública generada y una cuenta Expo; el despliegue de Azure no crea ni firma un APK.
+La base SQLite vive en el almacenamiento persistente de App Service, pero no es una arquitectura para alta concurrencia ni un reemplazo de backups administrados. No guardes información personal real en esta demostración. El APK se construye mediante el workflow de GitHub Actions; la última release está publicada en [apk-latest](https://github.com/jesica1221/proyecto/releases/tag/apk-latest). No se ha instalado en un teléfono físico y su funcionamiento completo depende de que la API de Azure vuelva a estar disponible.
